@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.next-dev/
+.vercel/
+.env
+.env*.local
+*.log
+tsconfig.tsbuildinfo
+*service-account*.json
+*-firebase-adminsdk-*.json
+*.pem
+*.key
+*.p12
+coverage/
