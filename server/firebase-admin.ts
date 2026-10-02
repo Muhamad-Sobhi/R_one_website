@@ -12,25 +12,33 @@ type ServiceAccount = {
 function loadServiceAccount(): ServiceAccount | null {
   const directJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (directJson) {
-    return JSON.parse(directJson) as ServiceAccount;
+    try {
+      return JSON.parse(directJson) as ServiceAccount;
+    } catch {
+      return null;
+    }
   }
 
   const configuredPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
   const candidates = new Set<string>();
-  if (configuredPath) candidates.add(resolve(process.cwd(), configuredPath));
-
-  let currentDir = process.cwd();
-  for (let depth = 0; depth < 5; depth += 1) {
-    candidates.add(resolve(currentDir, 'service-account.json'));
-    candidates.add(resolve(currentDir, 'Dashboard/service-account.json'));
-    candidates.add(resolve(currentDir, '../Dashboard/service-account.json'));
-    currentDir = dirname(currentDir);
+  if (configuredPath) {
+    candidates.add(resolve(process.cwd(), configuredPath));
+    candidates.add(configuredPath);
   }
+
+  for (let currentDir = process.cwd(); currentDir !== dirname(currentDir); currentDir = dirname(currentDir)) {
+    candidates.add(resolve(currentDir, 'service-account.json'));
+  }
+  candidates.add(resolve(process.cwd(), 'service-account.json'));
 
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;
-    const raw = readFileSync(candidate, 'utf8');
-    return JSON.parse(raw) as ServiceAccount;
+    try {
+      const raw = readFileSync(candidate, 'utf8');
+      return JSON.parse(raw) as ServiceAccount;
+    } catch {
+      return null;
+    }
   }
 
   return null;

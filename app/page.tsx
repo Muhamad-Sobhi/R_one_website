@@ -153,6 +153,7 @@ export default function StorePage() {
   const [orderNumber, setOrderNumber] = useState('');
   const [orderShippingPending, setOrderShippingPending] = useState(false);
   const [rememberCheckoutDetails, setRememberCheckoutDetails] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [form, setForm] = useState({ customerName: '', phone: '', email: '', city: '', address: '', shippingArea: '' });
   const today = new Date().toISOString().slice(0, 10);
 
@@ -201,9 +202,9 @@ export default function StorePage() {
   }, [toast]);
 
   useEffect(() => {
-    document.body.style.overflow = cartOpen || activeProduct ? 'hidden' : '';
+    document.body.style.overflow = cartOpen || activeProduct || mobileMenuOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
-  }, [cartOpen, activeProduct]);
+  }, [cartOpen, activeProduct, mobileMenuOpen]);
 
   const availableProducts = products.filter((product) => Number(product.stock) > 0);
   const resolvedProducts = availableProducts.map((product) => {
@@ -321,14 +322,22 @@ export default function StorePage() {
   return <main className="store-shell">
     <div className="announcement"><span className="announcement-dot" /> شغل متفصل بعناية في القاهرة <span className="announcement-divider">/</span> توصيل لكل المحافظات</div>
     <header className="site-header">
-      <button className="mobile-nav-button icon-button" title="القائمة" onClick={() => document.getElementById('collections')?.scrollIntoView({ behavior: 'smooth' })}><Menu size={19} /></button>
-      <a className="wordmark" href="#top" aria-label="R/ONE الصفحة الرئيسية"><span className="wordmark-r">R/</span><span className="wordmark-name">ONE<small>MADE TO MOVE</small></span></a>
+      <button className="mobile-nav-button icon-button" type="button" title="القائمة" aria-label="فتح القائمة" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)}><Menu size={19} /></button>
+      <a className="wordmark" href="#top" aria-label="R/ONE الصفحة الرئيسية">
+        <svg viewBox="0 0 184 58" role="img" aria-label="R/ONE" className="wordmark-svg">
+          <text x="0" y="34" className="wordmark-svg-r">R/</text>
+          <text x="44" y="34" className="wordmark-svg-one">ONE</text>
+          <text x="40" y="52" className="wordmark-svg-r1">R1</text>
+        </svg>
+      </a>
       <nav className="header-links" aria-label="التنقل الرئيسي"><a href="#collections">القطع</a><a href="#story">عن الورشة</a><a href="#contact">تواصل</a></nav>
       <div className="header-actions">
         <label className="header-search"><Search size={16} /><input aria-label="ابحث في المنتجات" placeholder="بتدور على إيه؟" value={search} onChange={(event) => { setSearch(event.target.value); document.getElementById('collections')?.scrollIntoView({ behavior: 'smooth' }); }} /><kbd>/</kbd></label>
         <button className="bag-button" type="button" onClick={() => setCartOpen(true)} aria-label={`فتح الشنطة، ${cartCount} قطعة`}><ShoppingBag size={18} /><span>الشنطة</span><b>{cartCount}</b></button>
       </div>
     </header>
+
+    {mobileMenuOpen && <div className="mobile-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setMobileMenuOpen(false); }}><aside className="mobile-drawer" role="dialog" aria-modal="true" aria-label="القائمة الرئيسية"><div className="mobile-drawer-head"><span className="eyebrow">R/ONE</span><button className="icon-button" type="button" title="إغلاق" onClick={() => setMobileMenuOpen(false)}><X size={19} /></button></div><nav className="mobile-drawer-nav" aria-label="القائمة المحمولة"><a href="#collections" onClick={() => setMobileMenuOpen(false)}>المجموعة</a><a href="#story" onClick={() => setMobileMenuOpen(false)}>عن الورشة</a><a href="#contact" onClick={() => setMobileMenuOpen(false)}>تواصل</a>{profile.whatsapp && <a href={whatsappHref(profile.whatsapp, 'مرحباً، عندي استفسار عن منتجات R/ONE.')} target="_blank" rel="noreferrer" onClick={() => setMobileMenuOpen(false)}>استفسار واتساب</a>}</nav></aside></div>}
 
     <section className="intro-band" id="top">
       <div className="intro-copy"><span className="eyebrow"><i /> R/ONE · ورشة ملابس شبابية</span><h1>مصنوع للحركة.<br /><em>ومفصّل على مقاسك.</em></h1><p>{profile.description || 'قطع أساسية بتفاصيل محسوبة، من قلب الورشة لحد بابك.'}</p><a className="intro-link" href="#collections">اكتشف المجموعة <ArrowDownLeft size={16} /></a></div>
