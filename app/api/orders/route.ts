@@ -96,7 +96,7 @@ export async function POST(request: Request) {
         const product = snapshot.data() as ProductRecord;
         if ((Number(product.stock) || 0) < line.quantity) throw new Error(`الكمية المطلوبة من «${product.name || 'المنتج'}» غير متوفرة حالياً.`);
         const unitPrice = activeOfferPrice(product, snapshot.id, offers, today);
-        if (unitPrice <= 0) throw new Error(`سعر «${product.name || 'المنتج'}» غير صالح. تواصل مع الورشة.`);
+        if (unitPrice <= 0) throw new Error(`سعر «${product.name || 'المنتج'}» غير صالح. تواصل معنا.`);
         const lineTotal = Math.round(unitPrice * line.quantity * 100) / 100;
         subtotal += lineTotal;
         return {

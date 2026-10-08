@@ -1,0 +1,381 @@
+'use client';
+
+import Image from 'next/image';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  ArrowUp,
+  Maximize2,
+  ArrowUpLeft,
+  Check,
+  ChevronLeft,
+  Clock3,
+  MapPin,
+  Minus,
+  PackageCheck,
+  Plus,
+  Send,
+  ShoppingBag,
+  Truck,
+} from 'lucide-react';
+import CartDrawer from '@/components/cart-drawer';
+import ImageLightbox from '@/components/image-lightbox';
+import ProductReviews from '@/components/product-reviews';
+import ProductCard from '@/components/product-card';
+import SiteFooter from '@/components/site-footer';
+import SiteHeader, { type NavLink } from '@/components/site-header';
+import { useCart, useScrolled, useStoreData, useToast } from '@/lib/hooks';
+import {
+  CURRENCY_LABEL,
+  MAX_QUANTITY,
+  brandName,
+  formatMoney,
+  formatPrice,
+  pickRelated,
+  productImages,
+  stockState,
+  whatsappHref,
+} from '@/lib/store';
+
+const NAV_LINKS: NavLink[] = [
+  { href: '/#collections', label: 'القطع' },
+  { href: '/#story', label: 'عنّا' },
+  { href: '/#contact', label: 'تواصل' },
+];
+
+export default function ProductPage() {
+  const params = useParams();
+  const router = useRouter();
+  const productId = typeof params?.id === 'string' ? params.id : '';
+  const { products, catalog, available, reviews, profile, loading } = useStoreData();
+  const cart = useCart(products);
+  const { toast, showToast } = useToast();
+
+  const [cartOpen, setCartOpen] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [activeImage, setActiveImage] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const showBackToTop = useScrolled(500);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      sessionStorage.removeItem('r-one-search');
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      sessionStorage.setItem('r-one-search', search);
+      router.push('/#collections');
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [search, router]);
+
+  const name = brandName(profile.name);
+  const product = useMemo(() => catalog.find((item) => item.id === productId) ?? null, [catalog, productId]);
+  const images = useMemo(() => (product ? productImages(product) : []), [product]);
+  const stock = product ? stockState(product.stock) : null;
+  const related = useMemo(() => (product ? pickRelated(available, product, 4) : []), [available, product]);
+
+  const cartItems = useMemo(
+    () =>
+      cart.lines
+        .map((line) => {
+          const item = available.find((entry) => entry.id === line.productId);
+          if (!item) return null;
+          const safeQuantity = Math.min(line.quantity, Number(item.stock) || 0);
+          return safeQuantity > 0 ? { ...item, quantity: safeQuantity } : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item)),
+    [cart.lines, available],
+  );
+
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
+
+  const maxQuantity = product ? Math.min(MAX_QUANTITY, Number(product.stock) || 0) : 1;
+
+  function addToCart() {
+    if (!product) return;
+    const current = cart.lines.find((line) => line.productId === product.id)?.quantity || 0;
+    if (current + quantity > maxQuantity) {
+      showToast('وصلت للحد المتاح من القطعة.');
+      return;
+    }
+    cart.changeQuantity(product.id, current + quantity);
+    showToast('اتضافت القطعة للشنطة.');
+    setCartOpen(true);
+  }
+
+  function orderViaWhatsApp() {
+    if (!product || !profile.whatsapp) return;
+    const lines = [
+      `*طلب منتج من ${name}*`,
+      `المنتج: ${product.name}`,
+      product.sku ? `الكود: ${product.sku}` : '',
+      `الكمية: ${quantity}`,
+      `السعر: ${formatPrice(product.salePrice)} × ${quantity} = ${formatPrice(product.salePrice * quantity)}`,
+      `رابط المنتج: ${window.location.href}`,
+    ].filter(Boolean);
+    window.open(whatsappHref(profile.whatsapp, lines.join('\n')), '_blank', 'noreferrer');
+  }
+
+  function cartWhatsAppMessage() {
+    const lines = [`*طلب من شنطة ${name}*`];
+    let total = 0;
+    for (const item of cartItems) {
+      total += item.salePrice * item.quantity;
+      lines.push(`• ${item.name}${item.sku ? ` (${item.sku})` : ''} × ${item.quantity} = ${formatPrice(item.salePrice * item.quantity)}`);
+    }
+    lines.push(`إجمالي المنتجات: ${formatPrice(total)}`);
+    lines.push('أرجو تأكيد الطلب وتكلفة التوصيل.');
+    return lines.join('\n');
+  }
+
+  return (
+    <main className="store-shell">
+      <SiteHeader
+        profile={profile}
+        cartCount={cartCount}
+        onOpenCart={() => setCartOpen(true)}
+        links={NAV_LINKS}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchHint="اكتب في البحث وهنوديك لصفحة المجموعة بنتيجة جاهزة."
+      />
+
+      <nav className="product-breadcrumb" aria-label="مسار التنقل">
+        <Link href="/">الرئيسية</Link>
+        <ChevronLeft size={13} />
+        {product ? (
+          <Link href="/#collections">{product.categoryLabel}</Link>
+        ) : (
+          <Link href="/#collections">المجموعة</Link>
+        )}
+        {product ? <><ChevronLeft size={13} /><span>{product.name}</span></> : null}
+      </nav>
+
+      {loading || !productId ? (
+        <div className="product-page-loading">
+          <span className="loading-spinner" />
+          <p>بنجهّز تفاصيل المنتج...</p>
+        </div>
+      ) : !product ? (
+        <div className="product-page-notfound">
+          <span className="empty-mark">R/</span>
+          <h2>المنتج مش موجود</h2>
+          <p>يمكن اتشال أو الرابط مش صحيح.</p>
+          <Link href="/" className="button-dark">رجّع للمتجر <ArrowLeft size={15} /></Link>
+        </div>
+      ) : (
+        <>
+          <section className="product-page-detail">
+            <div className="product-page-gallery">
+              <button
+                className="product-page-main-image"
+                type="button"
+                onClick={() => images.length && setLightboxOpen(true)}
+                aria-label={images.length ? `تكبير صورة ${product.name}` : undefined}
+                disabled={!images.length}
+              >
+                {images.length ? (
+                  <Image
+                    key={images[activeImage]}
+                    src={images[activeImage]}
+                    alt={product.name}
+                    fill
+                    sizes="(max-width: 980px) 100vw, 45vw"
+                    priority
+                    className="product-page-img"
+                  />
+                ) : (
+                  <div className="product-placeholder product-placeholder-lg">
+                    <span>R/</span><b>ONE</b>
+                  </div>
+                )}
+                {images.length ? (
+                  <span className="gallery-zoom"><Maximize2 size={15} /> معاينة بالحجم الكامل</span>
+                ) : null}
+                {product.discounted ? <span className="sale-label sale-label-lg">{product.offerTitle || 'عرض'}</span> : null}
+                <span className="detail-image-index">R/ONE · {product.sku || 'MADE TO MOVE'}</span>
+                {images.length > 1 ? <span className="gallery-count">{activeImage + 1} / {images.length}</span> : null}
+              </button>
+
+              {images.length > 1 ? (
+                <div className="product-page-thumbnails">
+                  {images.map((image, index) => (
+                    <button
+                      key={image}
+                      className={`product-thumb ${index === activeImage ? 'product-thumb-active' : ''}`}
+                      type="button"
+                      onClick={() => setActiveImage(index)}
+                      aria-label={`صورة ${index + 1} من ${product.name}`}
+                      aria-pressed={index === activeImage}
+                      onDoubleClick={() => setLightboxOpen(true)}
+                    >
+                      <Image src={image} alt="" fill sizes="70px" />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="product-page-info">
+              <span className="eyebrow">{product.categoryLabel}{product.brandLabel ? ` · ${product.brandLabel}` : ''}</span>
+              <h1 className="product-page-name">{product.name}</h1>
+
+              <div className="product-page-price">
+                <strong>{formatMoney(product.salePrice)}</strong>
+                {product.discounted ? <del>{formatMoney(product.price)}</del> : null}
+                <small>{CURRENCY_LABEL}</small>
+                {product.discounted && product.offerTitle ? <span className="product-offer-badge">{product.offerTitle}</span> : null}
+              </div>
+
+              <div className="product-page-divider" />
+
+              <div className={`product-page-stock ${!stock?.available ? 'is-out' : stock?.low ? 'is-low' : ''}`}>
+                <i />
+                {stock?.label}
+              </div>
+
+              {product.description ? <p className="product-page-desc">{product.description}</p> : null}
+
+              {stock?.available ? (
+                <div className="product-page-qty">
+                  <span>الكمية</span>
+                  <div className="quantity-stepper quantity-stepper-lg">
+                    <button type="button" aria-label="تقليل الكمية" onClick={() => setQuantity((value) => Math.max(1, value - 1))} disabled={quantity <= 1}>
+                      <Minus size={14} />
+                    </button>
+                    <span>{quantity}</span>
+                    <button type="button" aria-label="زيادة الكمية" onClick={() => setQuantity((value) => Math.min(maxQuantity, value + 1))} disabled={quantity >= maxQuantity}>
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="product-page-actions">
+                {stock?.available ? (
+                  <>
+                    <button className="checkout-button product-page-cart-btn" type="button" onClick={addToCart}>
+                      أضف للشنطة <ShoppingBag size={17} />
+                    </button>
+                    {profile.whatsapp ? (
+                      <button className="product-page-whatsapp-btn" type="button" onClick={orderViaWhatsApp}>
+                        <Send size={17} /> اطلب عبر واتساب
+                      </button>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="product-page-unavailable">المنتج غير متاح حالياً — شوف قطع تانية من نفس التصنيف.</div>
+                )}
+              </div>
+
+              <div className="product-page-features">
+                <div><PackageCheck size={15} /><span>جودة مختارة وأنت مرتاح</span></div>
+                <div><Truck size={15} /><span>توصيل لكل المحافظات</span></div>
+                <div><Clock3 size={15} /><span>متابعة مباشرة للطلب</span></div>
+                <div><MapPin size={15} /><span>استبدال خلال 14 يوم</span></div>
+              </div>
+
+              {profile.whatsapp ? (
+                <a
+                  className="product-page-inquiry"
+                  href={whatsappHref(profile.whatsapp, `مرحباً، عندي استفسار عن منتج: ${product.name}`)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <Send size={13} /> استفسر عن المنتج عبر واتساب <ArrowUpLeft size={13} />
+                </a>
+              ) : null}
+            </div>
+          </section>
+
+          <ProductReviews product={product} productName={product.name} reviews={reviews} />
+
+          {related.length ? (
+            <section className="product-page-similar">
+              <div className="product-page-similar-head">
+                <div>
+                  <span className="eyebrow">اختيارات قريبة من اختيارك <i /></span>
+                  <h2>منتجات مشابهة</h2>
+                </div>
+                <Link className="link-underline" href="/#collections">كل المجموعة <ArrowLeft size={14} /></Link>
+              </div>
+              <div className="product-grid similar-grid">
+                {related.map((entry, index) => (
+                  <ProductCard
+                    key={entry.product.id}
+                    product={entry.product}
+                    index={index}
+                    reason={entry.reason === 'نفس التصنيف' ? entry.reason : undefined}
+                    buyLabel="عرض المنتج"
+                    onAdd={(item) => {
+                      if (cart.addOne(item.id)) showToast('اتضافت القطعة للشنطة.');
+                      else showToast('وصلت للحد المتاح من القطعة.');
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </>
+      )}
+
+      <SiteFooter profile={profile} />
+
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cartItems}
+        brand={name}
+        count={cartCount}
+        subtotal={subtotal}
+        onQuantity={cart.changeQuantity}
+        onBrowse={() => {
+          setCartOpen(false);
+          router.push('/#collections');
+        }}
+        shipping={<div><span>التوصيل</span><strong>يتحدد معاك</strong></div>}
+        actions={
+          profile.whatsapp ? (
+            <a className="checkout-button cart-whatsapp-order" href={whatsappHref(profile.whatsapp, cartWhatsAppMessage())} target="_blank" rel="noreferrer">
+              <Send size={16} /> اطلب الشنطة عبر واتساب
+            </a>
+          ) : null
+        }
+        note={<small><Send size={13} /> أو اكمل طلبك من صفحة المجموعة والدفع عند الاستلام</small>}
+      />
+
+      {lightboxOpen ? (
+        <ImageLightbox
+          images={images}
+          index={activeImage}
+          alt={product?.name ?? ''}
+          onIndexChange={setActiveImage}
+          onClose={() => setLightboxOpen(false)}
+        />
+      ) : null}
+
+      {profile.whatsapp ? (
+        <a
+          className="whatsapp-float"
+          href={whatsappHref(profile.whatsapp, `مرحباً، عندي استفسار عن منتجات ${name}.`)}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="تواصل معنا على واتساب"
+        >
+          <Send size={17} /><span>استفسار واتساب</span>
+        </a>
+      ) : null}
+
+      {toast ? <div className="store-toast" role="status"><span><Check size={14} /></span>{toast}</div> : null}
+
+      <button className={`back-to-top ${showBackToTop ? 'back-to-top-visible' : ''}`} type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="العودة لأعلى الصفحة">
+        <ArrowUp size={18} />
+      </button>
+    </main>
+  );
+}

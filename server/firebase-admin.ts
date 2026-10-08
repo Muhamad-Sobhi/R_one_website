@@ -28,8 +28,10 @@ function loadServiceAccount(): ServiceAccount | null {
 
   for (let currentDir = process.cwd(); currentDir !== dirname(currentDir); currentDir = dirname(currentDir)) {
     candidates.add(resolve(currentDir, 'service-account.json'));
+    candidates.add(resolve(currentDir, 'Dashboard', 'service-account.json'));
   }
   candidates.add(resolve(process.cwd(), 'service-account.json'));
+  candidates.add(resolve(process.cwd(), '..', 'Dashboard', 'service-account.json'));
 
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;
