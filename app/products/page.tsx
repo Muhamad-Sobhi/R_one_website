@@ -10,7 +10,7 @@ import { rankProducts } from '@/lib/store';
 
 export default function ProductsPage() {
   const router = useRouter();
-  const { available, categories, brands } = useStoreData();
+  const { available, categories, brands, loading } = useStoreData();
   const [search, setSearch] = useState('');
 
   const results = useMemo(
@@ -35,7 +35,7 @@ export default function ProductsPage() {
         breadcrumb={[{ label: 'الرئيسية', href: '/' }, { label: 'كل المنتجات' }]}
       />
       <PageSection>
-        <CatalogBrowser products={available} categories={categories} brands={brands} />
+        <CatalogBrowser products={available} categories={categories} brands={brands} loading={loading} />
       </PageSection>
       {search.trim() ? (
         <button className="catalog-jump" type="button" onClick={() => router.push(`/search?q=${encodeURIComponent(search)}`)}>

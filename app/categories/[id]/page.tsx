@@ -12,7 +12,7 @@ import { pickFeatured } from '@/lib/store';
 export default function CategoryPage() {
   const params = useParams();
   const categoryId = typeof params?.id === 'string' ? params.id : '';
-  const { available, categories, brands } = useStoreData();
+  const { available, categories, brands, loading } = useStoreData();
 
   const category = categories.find((entry) => entry.id === categoryId) ?? null;
   const items = useMemo(
@@ -24,6 +24,25 @@ export default function CategoryPage() {
     [categories, available, categoryId],
   );
   const picks = useMemo(() => pickFeatured(items, 4), [items]);
+
+  if (loading) {
+    return (
+      <StoreLayout>
+        <PageHero eyebrow="قسم" title="بنجهّز القسم..." breadcrumb={[{ label: 'الرئيسية', href: '/' }, { label: 'الأقسام', href: '/categories' }]} />
+        <PageSection>
+          <div className="loading-products" aria-hidden="true">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div className="skeleton-card" key={index}>
+                <div className="skeleton-media" />
+                <div className="skeleton-line tiny" />
+                <div className="skeleton-line short" />
+              </div>
+            ))}
+          </div>
+        </PageSection>
+      </StoreLayout>
+    );
+  }
 
   if (!category) {
     return (
@@ -58,6 +77,7 @@ export default function CategoryPage() {
       <PageSection>
         <CatalogBrowser
           products={available}
+          loading={loading}
           categories={categories}
           brands={brands}
           initialCategory={category.id}

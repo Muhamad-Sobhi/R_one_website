@@ -11,7 +11,7 @@ import { useStoreData } from '@/lib/hooks';
 import { formatMoney, todayStamp } from '@/lib/store';
 
 export default function OffersPage() {
-  const { available, categories, brands, offers } = useStoreData();
+  const { available, categories, brands, offers, loading } = useStoreData();
   const today = todayStamp();
 
   const activeOffers = useMemo(
@@ -86,6 +86,7 @@ export default function OffersPage() {
       <PageSection>
         <CatalogBrowser
           products={available}
+          loading={loading}
           categories={categories}
           brands={brands}
           initialOfferOnly

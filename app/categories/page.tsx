@@ -9,7 +9,7 @@ import { useStoreData } from '@/lib/hooks';
 import { formatMoney } from '@/lib/store';
 
 export default function CategoriesPage() {
-  const { available, categories } = useStoreData();
+  const { available, categories, loading } = useStoreData();
 
   const groups = categories
     .map((category) => {
@@ -34,7 +34,16 @@ export default function CategoriesPage() {
       />
 
       <PageSection>
-        {groups.length ? (
+        {loading ? (
+          <div className="category-grid" aria-hidden="true">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div className="category-card" key={index}>
+                <div className="skeleton-media" />
+                <div className="category-card-copy"><div className="skeleton-line short" /><div className="skeleton-line tiny" /></div>
+              </div>
+            ))}
+          </div>
+        ) : groups.length ? (
           <div className="category-grid">
             {groups.map((group) => (
               <Link className="category-card" href={`/categories/${group.id}`} key={group.id}>

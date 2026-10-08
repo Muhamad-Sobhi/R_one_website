@@ -35,6 +35,7 @@ type CatalogBrowserProps = {
   emptyTitle?: string;
   emptyBody?: string;
   pageSize?: number;
+  loading?: boolean;
 };
 
 export default function CatalogBrowser({
@@ -49,6 +50,7 @@ export default function CatalogBrowser({
   emptyTitle = 'مفيش قطع مطابقة',
   emptyBody = 'جرّب تغيّر الفلترة أو ابحث بكلمة تانية.',
   pageSize = 24,
+  loading = false,
 }: CatalogBrowserProps) {
   const [category, setCategory] = useState(initialCategory);
   const [brand, setBrand] = useState('all');
@@ -95,6 +97,20 @@ export default function CatalogBrowser({
     setOfferOnly(false);
     setInStockOnly(false);
     setMaxPrice(0);
+  }
+
+  if (loading) {
+    return (
+      <div className="loading-products" aria-hidden="true">
+        {Array.from({ length: 8 }).map((_, index) => (
+          <div className="skeleton-card" key={index}>
+            <div className="skeleton-media" />
+            <div className="skeleton-line tiny" />
+            <div className="skeleton-line short" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   return (

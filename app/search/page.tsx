@@ -8,7 +8,7 @@ import { useStoreData } from '@/lib/hooks';
 import { rankProducts } from '@/lib/store';
 
 export default function SearchPage() {
-  const { available, categories, brands } = useStoreData();
+  const { available, categories, brands, loading } = useStoreData();
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -43,6 +43,7 @@ export default function SearchPage() {
         <PageSection>
           <CatalogBrowser
             products={items}
+            loading={loading}
             categories={categories}
             brands={brands}
             initialQuery={query}
