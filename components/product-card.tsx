@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ArrowLeft, Eye, Plus } from 'lucide-react';
+import { ArrowLeft, Eye, ShoppingBag } from 'lucide-react';
 import {
   CURRENCY_LABEL,
   type ResolvedProduct,
@@ -95,7 +95,7 @@ export default function ProductCard({
             disabled={!stock.available}
             onClick={() => onAdd(product)}
           >
-            <Plus size={18} />
+            <ShoppingBag size={17} />
           </button>
         ) : null}
       </div>

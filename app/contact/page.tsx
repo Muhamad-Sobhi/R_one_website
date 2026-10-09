@@ -14,15 +14,30 @@ export default function ContactPage() {
   const { showToast } = useToast();
   const [form, setForm] = useState({ name: '', phone: '', message: '' });
   const [link, setLink] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
   const name = brandName(profile.name);
   const location = [profile.address, profile.city, profile.governorate].filter(Boolean).join('، ');
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSending(true);
     const digits = form.phone.replace(/\D/g, '');
     const message = `مرحباً، أنا ${form.name}${digits ? ` (${digits})` : ''}\n${form.message}`;
     setLink(profile.whatsapp ? `${whatsappHref(profile.whatsapp, message)}${whatsappHref(profile.whatsapp).includes('?') ? '&' : '?'}text=${encodeURIComponent(message)}` : `mailto:${profile.email}?subject=${encodeURIComponent('استفسار من الموقع')}&body=${encodeURIComponent(message)}`);
-    showToast('جّهزنا الرسالة، اضغط إرسال.');
+    try {
+      await fetch('/api/track-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: 'contact', name: form.name, phone: form.phone, email: profile.email, message: form.message, source: 'contact-page' }),
+      });
+      setSent(true);
+      showToast('وصلتنا رسالتك، هنرد عليك قريب.');
+    } catch {
+      showToast('مقدرناش نحفظ الرسالة، جرّب واتساب.');
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -48,7 +63,8 @@ export default function ContactPage() {
               رسالتك
               <textarea rows={5} required minLength={5} maxLength={800} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} placeholder="اكتب سؤالك أو طلبك..." />
             </label>
-            <button className="checkout-button" type="submit">جهّز الرسالة <Send size={16} /></button>
+            <button className="checkout-button" type="submit" disabled={sending}>{sending ? 'بنحفظ...' : 'أرسل الرسالة'} <Send size={16} /></button>
+            {sent ? <p className="contact-sent"><Check size={14} /> وصلتنا رسالتك محفوظة عندنا، ولو تحب رد أسرع ابعت على واتساب.</p> : null}
             {link ? (
               <a className="button-dark" href={link} target="_blank" rel="noreferrer">
                 <Check size={16} /> اضغط للإرسال على {profile.whatsapp ? 'واتساب' : 'البريد'}

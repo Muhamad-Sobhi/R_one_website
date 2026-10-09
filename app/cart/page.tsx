@@ -2,13 +2,15 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo } from 'react';
-import { ArrowLeft, Minus, PackageCheck, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, Check, MessageCircle, Minus, PackageCheck, Plus, ShoppingBag, Trash2, Zap } from 'lucide-react';
+import CustomerGate, { type CustomerProfile } from '@/components/customer-gate';
 import { cartItemsFrom } from '@/components/checkout-flow';
 import { PageHero, PageSection } from '@/components/page-shell';
 import StoreLayout from '@/components/store-layout';
 import { useCart, useStoreData } from '@/lib/hooks';
-import { CURRENCY_LABEL, formatMoney } from '@/lib/store';
+import { trackEvent } from '@/lib/analytics';
+import { CURRENCY_LABEL, formatMoney, formatPrice } from '@/lib/store';
 
 export default function CartPage() {
   const { products, available, rates, profile } = useStoreData();
@@ -17,6 +19,32 @@ export default function CartPage() {
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
   const rate = rates.find((entry) => entry.isActive);
+  const [gateOpen, setGateOpen] = useState(false);
+
+  function buildMessage(customer?: CustomerProfile) {
+    const lines = [
+      `*طلب كل الشنطة من R/ONE*`,
+      ...(customer ? [`العميل: ${customer.name}${customer.phone ? ` (${customer.phone})` : ''}${customer.address ? `\nالعنوان: ${customer.address}` : ''}`] : []),
+      '',
+      ...items.map((item) => {
+        const options = [item.color, item.size].filter(Boolean).join(' · ');
+        return `• ${item.name}${options ? ` — ${options}` : ''} × ${item.quantity} = ${formatPrice(item.salePrice * item.quantity)}`;
+      }),
+      '',
+      `إجمالي المنتجات: ${formatPrice(subtotal)} ${CURRENCY_LABEL}`,
+      ...(rate ? `التوصيل المتوقع: ${formatPrice(rate.price)} ${CURRENCY_LABEL}` : []),
+      'أرجو تأكيد الطلب وموعد التوصيل.',
+    ];
+    return lines.join('\n');
+  }
+
+  function buyAllViaWhatsApp(customer?: CustomerProfile) {
+    const phone = profile.whatsapp?.replace(/\D/g, '') ?? '';
+    if (!phone) return;
+    trackEvent({ event: 'whatsapp' });
+    const digits = phone.startsWith('0') ? `20${phone.slice(1)}` : phone;
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(buildMessage(customer))}`, '_blank', 'noreferrer');
+  }
 
   return (
     <StoreLayout>
@@ -59,8 +87,14 @@ export default function CartPage() {
               <div><span>قيمة القطع</span><strong>{formatMoney(subtotal)} {CURRENCY_LABEL}</strong></div>
               <div><span>التوصيل</span><strong>{rate ? `من ${formatMoney(rate.price)} ${CURRENCY_LABEL}` : 'يتحدد معاك'}</strong></div>
               <div className="cart-grand-total"><span>الإجمالي التقديري</span><strong>{formatMoney(subtotal)} {CURRENCY_LABEL}</strong></div>
-              <Link className="checkout-button" href="/checkout">إتمام الطلب <ArrowLeft size={16} /></Link>
+              <Link className="checkout-button buy-all-button" href="/checkout"><Zap size={17} /> اشترِ كل المنتجات</Link>
+              {profile.whatsapp ? (
+                <button className="checkout-button cart-whatsapp-order" type="button" onClick={() => setGateOpen(true)}>
+                  <MessageCircle size={16} /> اطلب الكل على واتساب
+                </button>
+              ) : null}
               <Link className="button-dark" href="/products">كمّل التسوق</Link>
+              <small className="cart-page-note"><Check size={13} /> بنسجّل بياناتك قبل ما نطلب من غيرها</small>
               <small className="cart-page-note"><PackageCheck size={13} /> بيتأكد المخزون عند تأكيد الطلب</small>
             </aside>
           </div>
@@ -73,6 +107,16 @@ export default function CartPage() {
           </div>
         )}
       </PageSection>
+
+      <CustomerGate
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        reason="سجّل بياناتك الأول، وبعدها هنجهّز رسالة واحدة فيها كل منتجات الشنطة."
+        onVerified={(customer) => {
+          setGateOpen(false);
+          buyAllViaWhatsApp(customer);
+        }}
+      />
 
       {profile.whatsapp ? (
         <PageSection>

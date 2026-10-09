@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { NotFoundBlock, PageHero, PageSection } from '@/components/page-shell';
 import StoreLayout from '@/components/store-layout';
-import { useStoreData } from '@/lib/hooks';
+import { useContent, useStoreData } from '@/lib/hooks';
 import { INFO_PAGES, brandTagline, formatDateStamp } from '@/lib/store';
 
 export default function InfoPageView() {
   const params = useParams();
   const slug = typeof params?.slug === 'string' ? params.slug : '';
-  const { infoPages, profile } = useStoreData();
+  const { profile } = useStoreData();
+  const { infoPages } = useContent();
   const stored = infoPages.find((entry) => (entry.slug || entry.id) === slug) ?? null;
   const fallback = INFO_PAGES.find((entry) => entry.slug === slug) ?? null;
   const page = stored ?? fallback;
@@ -38,7 +39,7 @@ export default function InfoPageView() {
         <div className="info-page-layout">
           <article className="info-article">
             <div className="info-article-body">
-              {content.split('\n').map((line, index) => (line.trim() ? <p key={index}>{line}</p> : <span className="post-gap" key={index} />))}
+              {content.split('\n').map((line: string, index: number) => (line.trim() ? <p key={index}>{line}</p> : <span className="post-gap" key={index} />))}
             </div>
             {stored?.updatedAt ? <span className="info-updated">آخر تحديث: {formatDateStamp(stored.updatedAt)}</span> : null}
             <Link className="button-dark" href="/contact">كلمنا لو عندك سؤال</Link>

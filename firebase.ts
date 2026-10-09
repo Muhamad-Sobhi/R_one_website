@@ -12,4 +12,9 @@ const firebaseConfig = {
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
+/**
+ * A single Firestore instance shared by the whole app.
+ * `lib/store-cache.ts` keeps one set of listeners alive across routes,
+ * so navigating between pages re-uses warm data instead of re-subscribing.
+ */
 export const db = getFirestore(app);

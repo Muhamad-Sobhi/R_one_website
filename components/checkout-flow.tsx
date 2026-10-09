@@ -10,11 +10,12 @@ import {
   CURRENCY_LABEL,
   formatMoney,
   formatPrice,
+  maxOrderQuantity,
 } from '@/lib/store';
 
 export type CheckoutForm = { customerName: string; phone: string; city: string; address: string; shippingArea: string };
 
-type CartItem = ResolvedProduct & { quantity: number };
+type CartItem = ResolvedProduct & { quantity: number; size?: string; color?: string };
 
 type CheckoutFlowProps = {
   items: CartItem[];
@@ -78,7 +79,7 @@ export default function CheckoutFlow({ items, rates, brand, whatsapp, form, onFo
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, items: items.map((item) => ({ productId: item.id, quantity: item.quantity })) }),
+        body: JSON.stringify({ ...form, items: items.map((item) => ({ productId: item.id, quantity: item.quantity, size: item.size, color: item.color })) }),
       });
       const result = (await response.json()) as { error?: string; orderId?: string; shippingPending?: boolean };
       if (!response.ok || !result.orderId) throw new Error(result.error || 'تعذر تسجيل الطلب.');
@@ -210,7 +211,7 @@ export default function CheckoutFlow({ items, rates, brand, whatsapp, form, onFo
               </span>
               <span className="checkout-summary-copy">
                 <strong>{item.name}</strong>
-                <small>{item.sku || item.categoryLabel}</small>
+                <small>{[item.color, item.size].filter(Boolean).join(' · ') || item.sku || item.categoryLabel}</small>
               </span>
               <span className="checkout-summary-price">{formatMoney(item.salePrice * item.quantity)}</span>
             </li>
@@ -232,13 +233,16 @@ export default function CheckoutFlow({ items, rates, brand, whatsapp, form, onFo
   );
 }
 
-export function cartItemsFrom(products: ResolvedProduct[], lines: Array<{ productId: string; quantity: number }>): CartItem[] {
+export function cartItemsFrom(
+  products: ResolvedProduct[],
+  lines: Array<{ productId: string; quantity: number; size?: string; color?: string }>,
+): CartItem[] {
   return lines
-    .map((line) => {
+    .map((line): CartItem | null => {
       const product = products.find((item) => item.id === line.productId);
       if (!product) return null;
-      const quantity = Math.min(line.quantity, Number(product.stock) || 0);
-      return quantity > 0 ? { ...product, quantity } : null;
+      const quantity = Math.min(line.quantity, maxOrderQuantity(product, line.size));
+      return quantity > 0 ? { ...product, quantity, size: line.size, color: line.color } : null;
     })
-    .filter((item): item is CartItem => Boolean(item));
+    .filter((item): item is CartItem => item !== null);
 }

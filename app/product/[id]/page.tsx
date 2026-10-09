@@ -21,17 +21,25 @@ import {
   Truck,
 } from 'lucide-react';
 import CartDrawer from '@/components/cart-drawer';
+import CustomerGate, { type CustomerProfile } from '@/components/customer-gate';
 import ImageLightbox from '@/components/image-lightbox';
+import ProductOptions from '@/components/product-options';
 import ProductReviews from '@/components/product-reviews';
 import ProductCard from '@/components/product-card';
 import SiteFooter from '@/components/site-footer';
 import SiteHeader, { type NavLink } from '@/components/site-header';
-import { useCart, useScrolled, useStoreData, useToast } from '@/lib/hooks';
+import { useApprovedReviews, useCart, useScrolled, useStoreData, useToast } from '@/lib/hooks';
+import { trackEvent, useTrackView } from '@/lib/analytics';
 import {
   CURRENCY_LABEL,
   MAX_QUANTITY,
   brandName,
+  colorImages,
   formatMoney,
+  maxOrderQuantity,
+  productColors,
+  productSizes,
+  sizeStock,
   formatPrice,
   pickRelated,
   productImages,
@@ -49,7 +57,8 @@ export default function ProductPage() {
   const params = useParams();
   const router = useRouter();
   const productId = typeof params?.id === 'string' ? params.id : '';
-  const { products, catalog, available, reviews, profile, loading } = useStoreData();
+  const { products, catalog, available, profile, loading } = useStoreData();
+  const reviews = useApprovedReviews();
   const cart = useCart(products);
   const { toast, showToast } = useToast();
 
@@ -57,6 +66,10 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [size, setSize] = useState('');
+  const [color, setColor] = useState('');
+  const [gateOpen, setGateOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | 'product' | 'cart'>(null);
   const [search, setSearch] = useState('');
   const showBackToTop = useScrolled(500);
 
@@ -74,9 +87,15 @@ export default function ProductPage() {
 
   const name = brandName(profile.name);
   const product = useMemo(() => catalog.find((item) => item.id === productId) ?? null, [catalog, productId]);
-  const images = useMemo(() => (product ? productImages(product) : []), [product]);
-  const stock = product ? stockState(product.stock) : null;
+  const images = useMemo(() => (product ? colorImages(product, color || undefined) : []), [product, color]);
+  const sizes = useMemo(() => (product ? productSizes(product) : []), [product]);
+  const colors = useMemo(() => (product ? productColors(product) : []), [product]);
+  const needsSize = sizes.length > 0;
+  const stock = product ? stockState(Number(product.stock) || 0) : null;
+  const variantStock = product ? sizeStock(product, size || undefined) : 0;
   const related = useMemo(() => (product ? pickRelated(available, product, 4) : []), [available, product]);
+
+  useTrackView(product?.id, product?.name);
 
   const cartItems = useMemo(
     () =>
@@ -84,8 +103,8 @@ export default function ProductPage() {
         .map((line) => {
           const item = available.find((entry) => entry.id === line.productId);
           if (!item) return null;
-          const safeQuantity = Math.min(line.quantity, Number(item.stock) || 0);
-          return safeQuantity > 0 ? { ...item, quantity: safeQuantity } : null;
+          const safeQuantity = Math.min(line.quantity, maxOrderQuantity(item, line.size));
+          return safeQuantity > 0 ? { ...item, quantity: safeQuantity, size: line.size, color: line.color } : null;
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item)),
     [cart.lines, available],
@@ -94,25 +113,51 @@ export default function ProductPage() {
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cartItems.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
 
-  const maxQuantity = product ? Math.min(MAX_QUANTITY, Number(product.stock) || 0) : 1;
+  const maxQuantity = product ? maxOrderQuantity(product, size || undefined) : 1;
+  const selectionMissing = Boolean(product && needsSize && !size);
+
+  function changeColor(next: string) {
+    setColor(next);
+    setActiveImage(0);
+  }
 
   function addToCart() {
     if (!product) return;
-    const current = cart.lines.find((line) => line.productId === product.id)?.quantity || 0;
+    if (needsSize && !size) {
+      showToast('اختار المقاس الأول.');
+      return;
+    }
+    const existingLine = cart.lines.find((line) => line.productId === product.id && (line.size ?? '') === size && (line.color ?? '') === color);
+    const current = existingLine?.quantity || 0;
     if (current + quantity > maxQuantity) {
       showToast('وصلت للحد المتاح من القطعة.');
       return;
     }
-    cart.changeQuantity(product.id, current + quantity);
+    cart.changeVariant(product.id, size || undefined, color || undefined, current + quantity);
+    trackEvent({ event: 'add_to_cart', productId: product.id, productName: product.name });
     showToast('اتضافت القطعة للشنطة.');
     setCartOpen(true);
   }
 
-  function orderViaWhatsApp() {
+  function requestOrderViaWhatsApp() {
     if (!product || !profile.whatsapp) return;
+    setPendingAction('product');
+    setGateOpen(true);
+  }
+
+  function openProductWhatsApp(customer?: CustomerProfile) {
+    if (!product || !profile.whatsapp) return;
+    trackEvent({ event: 'whatsapp' });
+    const who = customer ? `${product.name}${customer.name ? `
+العميل: ${customer.name}` : ''}${customer.phone ? `
+الموبايل: ${customer.phone}` : ''}
+` : '';
     const lines = [
       `*طلب منتج من ${name}*`,
+      who,
       `المنتج: ${product.name}`,
+      color ? `اللون: ${color}` : '',
+      size ? `المقاس: ${size}` : '',
       product.sku ? `الكود: ${product.sku}` : '',
       `الكمية: ${quantity}`,
       `السعر: ${formatPrice(product.salePrice)} × ${quantity} = ${formatPrice(product.salePrice * quantity)}`,
@@ -121,12 +166,19 @@ export default function ProductPage() {
     window.open(whatsappHref(profile.whatsapp, lines.join('\n')), '_blank', 'noreferrer');
   }
 
-  function cartWhatsAppMessage() {
-    const lines = [`*طلب من شنطة ${name}*`];
+  function openCartWhatsApp(customer?: CustomerProfile) {
+    if (!profile.whatsapp) return;
+    trackEvent({ event: 'whatsapp' });
+    window.open(whatsappHref(profile.whatsapp, cartWhatsAppMessage(customer)), '_blank', 'noreferrer');
+  }
+
+  function cartWhatsAppMessage(customer?: CustomerProfile) {
+    const lines = [`*طلب من شنطة ${name}*`, ...(customer ? [`العميل: ${customer.name}${customer.phone ? ` (${customer.phone})` : ''}${customer.address ? `\nالعنوان: ${customer.address}` : ''}`] : [])];
     let total = 0;
     for (const item of cartItems) {
       total += item.salePrice * item.quantity;
-      lines.push(`• ${item.name}${item.sku ? ` (${item.sku})` : ''} × ${item.quantity} = ${formatPrice(item.salePrice * item.quantity)}`);
+      const options = [item.color, item.size].filter(Boolean).join(' · ');
+    lines.push(`• ${item.name}${options ? ` — ${options}` : ''}${item.sku ? ` (${item.sku})` : ''} × ${item.quantity} = ${formatPrice(item.salePrice * item.quantity)}`);
     }
     lines.push(`إجمالي المنتجات: ${formatPrice(total)}`);
     lines.push('أرجو تأكيد الطلب وتكلفة التوصيل.');
@@ -236,8 +288,16 @@ export default function ProductPage() {
 
               <div className={`product-page-stock ${!stock?.available ? 'is-out' : stock?.low ? 'is-low' : ''}`}>
                 <i />
-                {stock?.label}
+                {stock?.label}{color || size ? ` · ${[color, size].filter(Boolean).join(' · ')}` : ''}
               </div>
+
+              <ProductOptions
+                product={product}
+                size={size}
+                color={color}
+                onSizeChange={setSize}
+                onColorChange={changeColor}
+              />
 
               {product.description ? <p className="product-page-desc">{product.description}</p> : null}
 
@@ -253,17 +313,18 @@ export default function ProductPage() {
                       <Plus size={14} />
                     </button>
                   </div>
+                  {colors.length && variantStock <= 5 ? <small className="qty-note">متبقي {variantStock} من الاختيار ده</small> : null}
                 </div>
               ) : null}
 
               <div className="product-page-actions">
                 {stock?.available ? (
                   <>
-                    <button className="checkout-button product-page-cart-btn" type="button" onClick={addToCart}>
-                      أضف للشنطة <ShoppingBag size={17} />
-                    </button>
+                    <button className="checkout-button product-page-cart-btn" type="button" onClick={addToCart} disabled={selectionMissing}>
+                  {selectionMissing ? 'اختار المقاس' : <>أضف للشنطة <ShoppingBag size={17} /></>}
+                </button>
                     {profile.whatsapp ? (
-                      <button className="product-page-whatsapp-btn" type="button" onClick={orderViaWhatsApp}>
+                      <button className="product-page-whatsapp-btn" type="button" onClick={requestOrderViaWhatsApp}>
                         <Send size={17} /> اطلب عبر واتساب
                       </button>
                     ) : null}
@@ -338,15 +399,31 @@ export default function ProductPage() {
           setCartOpen(false);
           router.push('/#collections');
         }}
+        onBuyAll={() => {
+          setPendingAction('cart');
+          setGateOpen(true);
+        }}
         shipping={<div><span>التوصيل</span><strong>يتحدد معاك</strong></div>}
         actions={
           profile.whatsapp ? (
-            <a className="checkout-button cart-whatsapp-order" href={whatsappHref(profile.whatsapp, cartWhatsAppMessage())} target="_blank" rel="noreferrer">
+            <button className="checkout-button cart-whatsapp-order" type="button" onClick={() => { setPendingAction('cart'); setGateOpen(true); }}>
               <Send size={16} /> اطلب الشنطة عبر واتساب
-            </a>
+            </button>
           ) : null
         }
         note={<small><Send size={13} /> أو اكمل طلبك من صفحة المجموعة والدفع عند الاستلام</small>}
+      />
+
+      <CustomerGate
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        reason={pendingAction === 'cart' ? 'سجّل بياناتك الأول، وبعدها هنجهّز لك رسالة واتساب جاهزة.' : 'سجّل بياناتك الأول، وبعدها هنجهّز لك رسالة واتساب جاهزة للقطعة دي.'}
+        onVerified={(customer) => {
+          setGateOpen(false);
+          if (pendingAction === 'cart') openCartWhatsApp(customer);
+          else openProductWhatsApp(customer);
+          setPendingAction(null);
+        }}
       />
 
       {lightboxOpen ? (

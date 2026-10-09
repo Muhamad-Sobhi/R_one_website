@@ -11,7 +11,7 @@ import {
   formatMoney,
 } from '@/lib/store';
 
-type CartItem = ResolvedProduct & { quantity: number };
+type CartItem = ResolvedProduct & { quantity: number; size?: string; color?: string };
 
 type CartDrawerProps = {
   open: boolean;
@@ -24,6 +24,8 @@ type CartDrawerProps = {
   subtotal: number;
   total?: number;
   shipping?: ReactNode;
+  onBuyAll?: () => void;
+  buyAllLabel?: string;
   actions?: ReactNode;
   note?: ReactNode;
   children?: ReactNode;
@@ -40,6 +42,8 @@ export default function CartDrawer({
   subtotal,
   total,
   shipping,
+  onBuyAll,
+  buyAllLabel = 'اشترِ كل المنتجات دلوقتي',
   actions,
   note,
   children,
@@ -81,6 +85,9 @@ export default function CartDrawer({
                     <div className="cart-item-info">
                       <span className="eyebrow">{item.categoryLabel}</span>
                       <Link className="cart-item-name" href={`/product/${item.id}`} onClick={onClose}>{item.name}</Link>
+                      {[item.color, item.size].filter(Boolean).length ? (
+                        <span className="cart-item-options">{[item.color, item.size].filter(Boolean).join(' · ')}</span>
+                      ) : null}
                       <span>{formatMoney(item.salePrice)} {CURRENCY_LABEL}</span>
                       <div className="quantity-stepper">
                         <button type="button" title="تقليل الكمية" aria-label="تقليل الكمية" onClick={() => onQuantity(item.id, item.quantity - 1)}>
@@ -118,6 +125,11 @@ export default function CartDrawer({
                 <div><span>قيمة القطع</span><strong>{formatMoney(subtotal)} {CURRENCY_LABEL}</strong></div>
                 {shipping}
                 <div className="cart-grand-total"><span>الإجمالي</span><strong>{formatMoney(total ?? subtotal)} {CURRENCY_LABEL}</strong></div>
+                {onBuyAll ? (
+                  <button className="checkout-button buy-all-button" type="button" onClick={onBuyAll}>
+                    <ShoppingBag size={17} /> {buyAllLabel}
+                  </button>
+                ) : null}
                 {actions}
                 <small><PackageCheck size={13} /> مخزون القطع بيتأكد عند تسجيل الطلب</small>
                 {note}

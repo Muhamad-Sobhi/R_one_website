@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Check, Send } from 'lucide-react';
 import CartDrawer from '@/components/cart-drawer';
@@ -8,6 +9,7 @@ import { cartItemsFrom } from '@/components/checkout-flow';
 import SiteFooter from '@/components/site-footer';
 import SiteHeader from '@/components/site-header';
 import { useCart, useStoreData, useToast } from '@/lib/hooks';
+import { trackEvent } from '@/lib/analytics';
 import { MAIN_LINKS, type NavLink, brandName, whatsappHref } from '@/lib/store';
 
 type StoreLayoutProps = {
@@ -29,6 +31,7 @@ export default function StoreLayout({
   searchResults = null,
   searchHint,
 }: StoreLayoutProps) {
+  const router = useRouter();
   const { products, available, categories, profile } = useStoreData();
   const cart = useCart(products);
   const [cartOpen, setCartOpen] = useState(false);
@@ -77,6 +80,10 @@ export default function StoreLayout({
         subtotal={subtotal}
         onQuantity={cart.changeQuantity}
         onBrowse={() => setCartOpen(false)}
+        onBuyAll={() => {
+          setCartOpen(false);
+          router.push('/checkout');
+        }}
         actions={
           <Link className="checkout-button" href="/checkout">
             إتمام الطلب <ArrowLeft size={16} />
@@ -87,6 +94,7 @@ export default function StoreLayout({
       {profile.whatsapp ? (
         <a
           className="whatsapp-float"
+          onClick={() => trackEvent({ event: 'whatsapp' })}
           href={whatsappHref(profile.whatsapp, `مرحباً، عندي استفسار عن منتجات ${name}.`)}
           target="_blank"
           rel="noreferrer"

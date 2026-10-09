@@ -1,5 +1,15 @@
 export type ProductImage = { url?: string; publicId?: string };
 
+export type ProductSize = { name: string; stock?: number };
+
+export type ProductColor = {
+  name: string;
+  hex?: string;
+  imageUrl?: string;
+  publicId?: string;
+  stock?: number;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -16,6 +26,8 @@ export type Product = {
   images?: ProductImage[];
   imageUrl?: string;
   stock: number;
+  sizes?: ProductSize[] | string[];
+  colors?: ProductColor[];
   createdAt?: unknown;
 };
 
@@ -128,7 +140,7 @@ export type BrandProfile = {
   mapUrl?: string;
 };
 
-export type CartLine = { productId: string; quantity: number };
+export type CartLine = { productId: string; quantity: number; size?: string; color?: string };
 
 export type ReviewStatus = 'جديدة' | 'معتمدة' | 'مخفية';
 
@@ -244,6 +256,61 @@ export function catalogLabel(entries: CatalogEntry[], id?: string, fallback?: st
   return entries.find((entry) => entry.id === id)?.name || fallback || BRAND_NAME;
 }
 
+const CLOUDINARY = 'res.cloudinary.com';
+
+/** Cloudinary can pick the best format + quality per browser — big image win. */
+export function productSizes(product: Product): ProductSize[] {
+  const list = Array.isArray(product.sizes) ? product.sizes : [];
+  return list
+    .map((size) => (typeof size === 'string' ? { name: size.trim() } : { name: String(size?.name ?? '').trim(), stock: Number(size?.stock) }))
+    .filter((size) => size.name)
+    .map((size) => (Number.isFinite(size.stock) ? size : { name: size.name }));
+}
+
+export function productColors(product: Product): ProductColor[] {
+  const list = Array.isArray(product.colors) ? product.colors : [];
+  return list
+    .map((color) => ({
+      name: String(color?.name ?? '').trim(),
+      hex: color?.hex || '',
+      imageUrl: color?.imageUrl || '',
+      publicId: color?.publicId || '',
+      stock: Number.isFinite(Number(color?.stock)) ? Number(color?.stock) : undefined,
+    }))
+    .filter((color) => color.name);
+}
+
+/** images that belong to a specific colour (falls back to the gallery) */
+export function colorImages(product: Product, colorName?: string) {
+  const colors = productColors(product);
+  const match = colorName ? colors.find((color) => color.name === colorName) : undefined;
+  if (!match) return productImages(product);
+  const gallery = productImages(product);
+  if (match.imageUrl && gallery.includes(match.imageUrl)) return [match.imageUrl, ...gallery.filter((url) => url !== match.imageUrl)];
+  if (match.imageUrl) return [match.imageUrl, ...gallery];
+  return gallery;
+}
+
+export function sizeStock(product: Product, sizeName?: string) {
+  const sizes = productSizes(product);
+  if (!sizes.length) return Number(product.stock) || 0;
+  const match = sizeName ? sizes.find((size) => size.name === sizeName) : undefined;
+  if (match && typeof match.stock === 'number') return match.stock;
+  const stocks = sizes.map((size) => (typeof size.stock === 'number' ? size.stock : Number(product.stock) || 0));
+  return Math.min(...stocks);
+}
+
+export function maxOrderQuantity(product: Product, sizeName?: string) {
+  return Math.max(1, Math.min(MAX_QUANTITY, sizeStock(product, sizeName) || Number(product.stock) || 1));
+}
+
+export function optimizeImageUrl(url: string, width?: number) {
+  if (!url || !url.includes(CLOUDINARY)) return url;
+  if (url.includes('/upload/f_auto')) return url;
+  const transforms = ['f_auto', 'q_auto:eco', width ? `w_${Math.round(width)}` : '', 'dpr_auto'].filter(Boolean).join(',');
+  return url.replace('/upload/', `/upload/${transforms}/`);
+}
+
 export function productImages(product: Product) {
   const list = (product.images ?? []).map((image) => image.url).filter((url): url is string => Boolean(url));
   if (list.length) return Array.from(new Set(list));
@@ -252,6 +319,10 @@ export function productImages(product: Product) {
 
 export function productImage(product: Product) {
   return productImages(product)[0] ?? '';
+}
+
+export function productImagesOptimized(product: Product, width?: number) {
+  return productImages(product).map((url) => optimizeImageUrl(url, width));
 }
 
 export function offerIsActive(offer: Offer, productId: string, today: string) {

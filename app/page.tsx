@@ -16,6 +16,7 @@ import {
   Plus,
   Search,
   Send,
+  ShoppingBag,
   Star,
   Tag,
   X,
@@ -26,7 +27,8 @@ import NewsletterForm from '@/components/newsletter-form';
 import ProductCard from '@/components/product-card';
 import SiteFooter from '@/components/site-footer';
 import SiteHeader from '@/components/site-header';
-import { useCart, useOverlayLock, useStoreData, useToast } from '@/lib/hooks';
+import { useApprovedReviews, useCart, useOverlayLock, useStoreData, useToast } from '@/lib/hooks';
+import { trackEvent, useTrackSearch } from '@/lib/analytics';
 import type { CheckoutForm } from '@/components/checkout-flow';
 import {
   MAIN_LINKS,
@@ -39,6 +41,7 @@ import {
   brandTagline,
   formatMoney,
   formatPrice,
+  maxOrderQuantity,
   pickFeatured,
   rankProducts,
   tokenizeQuery,
@@ -84,7 +87,8 @@ function clearDetails() {
 }
 
 export default function StorePage() {
-  const { products, available, categories, offers, rates, reviews, profile, loading, dataError, today } = useStoreData();
+  const { products, available, categories, offers, rates, profile, loading, dataError, today } = useStoreData();
+  const reviews = useApprovedReviews();
   const cart = useCart(products);
   const { toast, showToast } = useToast();
 
@@ -130,6 +134,8 @@ export default function StorePage() {
     [available, deferredSearch, sortOrder, categoryFilter, offerOnly],
   );
 
+  useTrackSearch(deferredSearch, ranked.length, Boolean(deferredSearch.trim()));
+
   const featured = useMemo(() => pickFeatured(available, 2), [available]);
   const newest = useMemo(() => rankProducts(available, '', 'newest', 'all', false).items.slice(0, 8), [available]);
   const offersNow = useMemo(
@@ -174,8 +180,8 @@ export default function StorePage() {
         .map((line) => {
           const product = available.find((item) => item.id === line.productId);
           if (!product) return null;
-          const quantity = Math.min(line.quantity, Number(product.stock) || 0);
-          return quantity > 0 ? { ...product, quantity } : null;
+          const quantity = Math.min(line.quantity, maxOrderQuantity(product, line.size));
+          return quantity > 0 ? { ...product, quantity, size: line.size, color: line.color } : null;
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item)),
     [cart.lines, available],
@@ -212,11 +218,16 @@ export default function StorePage() {
   }, []);
 
   function handleAdd(product: { id: string; name: string }) {
-    if (cart.addOne(product.id)) showToast('اتضافت القطعة للشنطة.');
-    else showToast('وصلت للحد المتاح من القطعة.');
+    if (cart.addOne(product.id)) {
+      trackEvent({ event: 'add_to_cart', productId: product.id, productName: product.name });
+      showToast('اتضافت القطعة للشنطة.');
+    } else {
+      showToast('وصلت للحد المتاح من القطعة.');
+    }
   }
 
   function beginCheckout() {
+    trackEvent({ event: 'checkout_start' });
     setCheckoutError('');
     setOrderNumber('');
     setOrderShippingPending(false);
@@ -231,7 +242,7 @@ export default function StorePage() {
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, items: cartItems.map((item) => ({ productId: item.id, quantity: item.quantity })) }),
+        body: JSON.stringify({ ...form, items: cartItems.map((item) => ({ productId: item.id, quantity: item.quantity, size: item.size, color: item.color })) }),
       });
       const result = (await response.json()) as { error?: string; orderId?: string; shippingPending?: boolean };
       if (!response.ok || !result.orderId) throw new Error(result.error || 'تعذر تسجيل الطلب.');
@@ -293,7 +304,7 @@ export default function StorePage() {
                       {product.discounted ? <del>{formatMoney(product.price)}</del> : null}
                     </span>
                     <button type="button" title={`أضف ${product.name} للشنطة`} aria-label={`أضف ${product.name} للشنطة`} onClick={() => handleAdd(product)}>
-                      <Plus size={16} />
+                      <ShoppingBag size={15} />
                     </button>
                   </div>
                 </div>
@@ -536,6 +547,7 @@ export default function StorePage() {
           window.setTimeout(() => window.location.assign('/cart'), 120);
         }}
         shipping={<div><span>التوصيل</span><strong>{selectedRate ? formatPrice(shippingCost) : 'يُحدد عند الدفع'}</strong></div>}
+        onBuyAll={beginCheckout}
         actions={<button className="checkout-button" type="button" onClick={beginCheckout}>أكمل بيانات التوصيل <ArrowLeft size={17} /></button>}
       >
         {orderNumber ? (
@@ -576,7 +588,11 @@ export default function StorePage() {
               <div className="checkout-order-summary" aria-label="المنتجات في الطلب">
                 {cartItems.map((item) => (
                   <div key={item.id}>
-                    <span>{item.name} <small>× {item.quantity}</small></span>
+                    <span>
+                      {item.name}
+                      {[item.color, item.size].filter(Boolean).length ? <em className="item-options">{[item.color, item.size].filter(Boolean).join(' · ')}</em> : null}
+                      <small>× {item.quantity}</small>
+                    </span>
                     <strong>{formatMoney(item.salePrice * item.quantity)}</strong>
                   </div>
                 ))}
@@ -670,6 +686,7 @@ export default function StorePage() {
 
       {profile.whatsapp ? (
         <a
+          onClick={() => trackEvent({ event: 'whatsapp' })}
           className={`whatsapp-float ${orderNumber && orderShippingPending ? 'whatsapp-order-followup' : ''}`}
           href={whatsappHref(profile.whatsapp, orderNumber && orderShippingPending ? `مرحباً، أريد تأكيد تكلفة الشحن لطلبي رقم ${orderNumber}.` : `مرحباً، عندي استفسار عن منتجات ${name}.`)}
           target="_blank"

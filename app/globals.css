@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
-
 /* ==========================================================
    R/ONE · Design tokens
    ========================================================== */
@@ -49,8 +47,8 @@
   --t-slow: 420ms;
 
   /* type */
-  --font-body: 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif;
-  --font-display: 'Archivo', 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif;
+  --font-body: var(--font-plex), 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif;
+  --font-display: var(--font-archivo), var(--font-plex), 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif;
 
   /* layout */
   --shell: min(100% - clamp(24px, 6vw, 96px), 1400px);
@@ -70,6 +68,7 @@ html {
 }
 body {
   margin: 0;
+  contain: layout style;
   color: var(--ink);
   background: var(--paper);
   font-family: var(--font-body);
@@ -104,6 +103,17 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 ::placeholder { color: var(--muted-2); opacity: 1; }
 
 .store-shell { overflow-x: clip; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* long pages: skip layout/paint work for sections that are off-screen */
+.rail-section,
+.section-shell,
+.collection-section,
+.story-band,
+.site-footer,
+.page-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 520px;
+}
 .store-shell > * { flex: 0 0 auto; }
 
 /* scrollbars */
@@ -612,16 +622,17 @@ a:hover > .brand-logo, .wordmark:hover .brand-logo { transform: rotate(-4deg) sc
 .intro-product-buy button {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 50%;
-  background: transparent;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--white);
   cursor: pointer;
-  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease), transform var(--t-base) var(--ease-out);
+  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease), transform var(--t-base) var(--ease-out);
 }
-.intro-product-buy button:hover { background: var(--accent); border-color: var(--accent); transform: rotate(90deg); }
+.intro-product-buy button:hover { background: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
 .intro-products-empty {
   position: absolute;
   inset: 0;
@@ -957,21 +968,33 @@ a:hover > .brand-logo, .wordmark:hover .brand-logo { transform: rotate(-4deg) sc
   transition: color var(--t-fast) var(--ease);
 }
 .product-name-row > a:hover { color: var(--accent); }
+/* add-to-cart mirrors the header bag button so the action is instantly recognisable */
 .add-button {
-  display: grid;
-  place-items: center;
-  width: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   height: 38px;
+  min-width: 38px;
+  padding: 0;
   flex: 0 0 auto;
   border: 1px solid var(--line-2);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--white);
   color: var(--ink);
   cursor: pointer;
   transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease),
-    color var(--t-base) var(--ease), transform var(--t-base) var(--ease-out);
+    color var(--t-base) var(--ease), transform var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease);
 }
-.add-button:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: var(--white); transform: rotate(90deg); }
+.add-button:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-accent);
+}
+.add-button:active:not(:disabled) { transform: translateY(0); }
+.add-button span { display: none; }
 
 .product-price { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; font-family: var(--font-display); }
 .product-price strong { color: var(--ink); font-size: 19px; font-weight: 800; letter-spacing: -0.03em; }
@@ -1687,6 +1710,103 @@ a:hover > .brand-logo, .wordmark:hover .brand-logo { transform: rotate(-4deg) sc
 
 
 /* ==========================================================
+   Product options · sizes + colours
+   ========================================================== */
+.product-options { display: flex; flex-direction: column; gap: 18px; margin: 4px 0 20px; }
+.option-block { display: flex; flex-direction: column; gap: 10px; }
+.option-head { display: flex; align-items: baseline; gap: 8px; color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-head b { color: var(--ink); font-size: 12.5px; letter-spacing: 0; text-transform: none; }
+.option-head .option-required { color: var(--accent); }
+.option-note { color: var(--muted-2); font-size: 11px; }
+
+/* pill sizes — same language as the reference: soft chip, solid black when picked */
+.size-options { display: flex; flex-wrap: wrap; gap: 10px; }
+.size-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 54px;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: #F1EFE9;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background-color var(--t-base) var(--ease), color var(--t-base) var(--ease),
+    transform var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
+}
+.size-option:hover:not(:disabled) { background: #E7E4DC; transform: translateY(-2px); }
+.size-option-active {
+  background: var(--ink);
+  border-color: var(--accent);
+  color: var(--white);
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm);
+  transform: translateY(-2px);
+}
+.size-option:disabled {
+  background: #F6F5F1;
+  color: var(--muted-2);
+  cursor: not-allowed;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.size-option:disabled::after {
+  position: absolute;
+  inset-inline: 12px;
+  top: 50%;
+  height: 1px;
+  background: var(--line-2);
+  content: '';
+}
+.size-option small { font-family: var(--font-body); font-size: 9px; }
+
+.color-options { display: flex; flex-wrap: wrap; gap: 10px; }
+.color-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease);
+}
+.color-option:hover { border-color: var(--ink); transform: translateY(-2px); }
+.color-option-active { background: var(--ink); border-color: var(--ink); color: var(--white); box-shadow: var(--shadow-accent); }
+.color-option-out { opacity: 0.45; }
+.color-dot {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--swatch, var(--paper-2));
+  border: 1px solid var(--line-2);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+.color-option-active .color-dot { border-color: rgba(255, 255, 255, 0.6); color: var(--white); }
+.color-name { white-space: nowrap; }
+
+.qty-note { color: var(--accent); font-size: 11px; font-weight: 700; }
+.cart-item-options,
+.item-options { color: var(--muted); font-size: 11px; font-style: normal; }
+.cart-item-options { display: inline-block; margin-top: -2px; }
+
+/* ==========================================================
    Product reviews + ratings
    ========================================================== */
 .reviews-section {
@@ -1859,6 +1979,23 @@ button.product-page-main-image:disabled { cursor: default; }
   font-size: 10.5px;
   font-weight: 700;
 }
+
+/* ==========================================================
+   Customer gate
+   ========================================================== */
+.customer-gate {
+  width: min(100%, 460px);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 22px;
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-lg);
+  animation: modal-in var(--t-slow) var(--ease-out) both;
+}
+.customer-gate-note { margin-bottom: 16px; color: var(--muted); font-size: 12.5px; line-height: 1.9; }
+.customer-gate .checkout-note { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.customer-gate-known { display: flex; align-items: center; gap: 7px; margin: 0; padding: 10px 12px; border: 1px solid var(--accent-ring); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent-deep); font-size: 11.5px; }
 
 /* ==========================================================
    Full-size image lightbox
@@ -2493,6 +2630,12 @@ button.product-page-main-image:disabled { cursor: default; }
 .cart-page-summary h2, .checkout-summary-card h2 { color: var(--ink); font-size: 16px; font-weight: 700; }
 .cart-page-summary > div, .checkout-summary-rows > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12.5px; }
 .cart-page-summary .button-dark { margin-top: 4px; }
+.buy-all-button { background: var(--ink); }
+.buy-all-button:hover { background: var(--accent); }
+.cart-page-summary .checkout-button + .checkout-button { margin-top: 8px; }
+.cart-page-summary .checkout-button.cart-whatsapp-order { background: var(--whatsapp); color: var(--white); }
+.cart-page-summary .checkout-button.cart-whatsapp-order:hover { background: #1ebe5d; }
+.cart-page-summary .cart-page-note { margin-top: 2px; }
 .cart-page-note { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-size: 10.5px; }
 .cart-page-help { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 22px; border-radius: var(--radius-lg); background: var(--paper-2); }
 .cart-page-help p { color: var(--ink); font-size: 14px; font-weight: 700; }
@@ -2646,6 +2789,8 @@ a.contact-card:hover { border-color: var(--accent); transform: translateX(-3px);
 .contact-card small { color: var(--muted); font-size: 11px; }
 .contact-card strong { overflow: hidden; color: var(--ink); font-size: 13px; font-weight: 700; text-overflow: ellipsis; }
 .contact-social, .contact-help { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); }
+.contact-sent { display: flex; align-items: center; gap: 7px; padding: 10px 12px; border: 1px solid var(--accent-ring); border-radius: var(--radius); background: var(--accent-soft); color: var(--accent-deep); font-size: 12px; }
+.contact-sent svg { flex: 0 0 auto; }
 .contact-help > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .contact-help a { min-height: 32px; padding: 0 12px; display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: var(--radius-pill); color: var(--ink); font-size: 12px; font-weight: 600; transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
 .contact-help a:hover { border-color: var(--accent); background: var(--accent-soft); }
@@ -2796,6 +2941,7 @@ a.contact-card:hover { border-color: var(--accent); transform: translateX(-3px);
   .store-toast { inset-inline-end: 14px; bottom: 72px; }
   .checkout-two { grid-template-columns: 1fr; }
   .cart-drawer { width: min(100%, 420px); }
+  .size-option { min-width: 48px; min-height: 44px; padding: 0 16px; font-size: 13px; }
   .product-page-thumbnails { gap: 8px; }
   .product-thumb { width: 58px; height: 58px; }
   .product-page-similar-head { flex-direction: column; align-items: flex-start; gap: 8px; }

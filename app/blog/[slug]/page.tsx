@@ -6,13 +6,13 @@ import { useParams } from 'next/navigation';
 import { CalendarDays, ChevronLeft } from 'lucide-react';
 import { NotFoundBlock, PageHero, PageSection } from '@/components/page-shell';
 import StoreLayout from '@/components/store-layout';
-import { useStoreData } from '@/lib/hooks';
+import { useContent } from '@/lib/hooks';
 import { formatDateStamp } from '@/lib/store';
 
 export default function BlogPostPage() {
   const params = useParams();
   const slug = typeof params?.slug === 'string' ? params.slug : '';
-  const { posts } = useStoreData();
+  const { posts } = useContent();
   const post = posts.find((entry) => (entry.slug || entry.id) === slug) ?? null;
   const related = posts.filter((entry) => entry.id !== post?.id).slice(0, 3);
 

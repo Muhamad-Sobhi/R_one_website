@@ -1,5 +1,22 @@
 import type { Metadata, Viewport } from 'next';
+import { Archivo, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import './globals.css';
+
+const display = Archivo({
+  subsets: ['latin'],
+  weight: ['600', '700', '800', '900'],
+  display: 'swap',
+  variable: '--font-archivo',
+  preload: true,
+});
+
+const body = IBM_Plex_Sans_Arabic({
+  subsets: ['arabic', 'latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-plex',
+  preload: true,
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://r-one.app'),
@@ -36,7 +53,13 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang="ar" dir="rtl" suppressHydrationWarning className={`${display.variable} ${body.variable}`}>
+      <head>
+        <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
+        <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+        <link rel="icon" href="/logo.png" type="image/png" />
+      </head>
       <body>{children}</body>
     </html>
   );

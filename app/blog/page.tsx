@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { ArrowLeft, CalendarDays } from 'lucide-react';
 import { NotFoundBlock, PageHero, PageSection } from '@/components/page-shell';
 import StoreLayout from '@/components/store-layout';
-import { useStoreData } from '@/lib/hooks';
+import { useContent } from '@/lib/hooks';
 import { formatDateStamp } from '@/lib/store';
 
 export default function BlogPage() {
-  const { posts } = useStoreData();
+  const { posts } = useContent();
   const sorted = [...posts].sort((left, right) => (Number(right.publishedAt) || 0) - (Number(left.publishedAt) || 0));
   const [lead, ...rest] = sorted;
 

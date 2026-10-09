@@ -6,7 +6,7 @@ import { adminDb } from '@/server/firebase-admin';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type SubmittedLine = { productId: string; quantity: number };
+type SubmittedLine = { productId: string; quantity: number; size?: string; color?: string };
 type ProductRecord = {
   name?: string;
   sku?: string;
@@ -15,6 +15,8 @@ type ProductRecord = {
   stock?: number;
   images?: Array<{ url?: string }>;
   imageUrl?: string;
+  sizes?: Array<{ name?: string; stock?: number } | string>;
+  colors?: Array<{ name?: string; hex?: string; imageUrl?: string }>;
 };
 type OfferRecord = {
   isActive?: boolean;
@@ -27,6 +29,21 @@ type OfferRecord = {
 
 function text(value: unknown, limit: number) {
   return typeof value === 'string' ? value.trim().slice(0, limit) : '';
+}
+
+function availableStock(product: ProductRecord, sizeName: string) {
+  const base = Number(product.stock) || 0;
+  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  if (!sizes.length) return base;
+  const match = sizes.find((size) => (typeof size === 'string' ? size : size?.name) === sizeName);
+  if (match && typeof match !== 'string' && Number.isFinite(Number(match.stock))) return Number(match.stock);
+  const stocks = sizes.map((size) => (typeof size === 'string' ? base : Number.isFinite(Number(size?.stock)) ? Number(size?.stock) : base));
+  return Math.min(...stocks);
+}
+
+function colorImage(product: ProductRecord, colorName: string) {
+  const colors = Array.isArray(product.colors) ? product.colors : [];
+  return colors.find((color) => color?.name === colorName)?.imageUrl ?? '';
 }
 
 function activeOfferPrice(product: ProductRecord, productId: string, offers: OfferRecord[], today: string) {
@@ -94,7 +111,13 @@ export async function POST(request: Request) {
         const snapshot = productSnapshots[index];
         if (!snapshot.exists) throw new Error('أحد المنتجات لم يعد متاحاً. حدّث الصفحة وحاول مرة أخرى.');
         const product = snapshot.data() as ProductRecord;
-        if ((Number(product.stock) || 0) < line.quantity) throw new Error(`الكمية المطلوبة من «${product.name || 'المنتج'}» غير متوفرة حالياً.`);
+        const size = text(line.size, 40);
+        const color = text(line.color, 40);
+        if (availableStock(product, size) < line.quantity) {
+          throw new Error(size
+            ? `الكمية المطلوبة من «${product.name || 'المنتج'}» بمقاس ${size} غير متوفرة حالياً.`
+            : `الكمية المطلوبة من «${product.name || 'المنتج'}» غير متوفرة حالياً.`);
+        }
         const unitPrice = activeOfferPrice(product, snapshot.id, offers, today);
         if (unitPrice <= 0) throw new Error(`سعر «${product.name || 'المنتج'}» غير صالح. تواصل معنا.`);
         const lineTotal = Math.round(unitPrice * line.quantity * 100) / 100;
@@ -103,7 +126,9 @@ export async function POST(request: Request) {
           productId: snapshot.id,
           productName: text(product.name, 90),
           sku: text(product.sku, 24),
-          imageUrl: product.images?.[0]?.url || product.imageUrl || '',
+          imageUrl: color ? colorImage(product, color) || product.images?.[0]?.url || product.imageUrl || '' : product.images?.[0]?.url || product.imageUrl || '',
+          ...(size ? { size } : {}),
+          ...(color ? { color } : {}),
           quantity: line.quantity,
           unitPrice,
           lineTotal,
