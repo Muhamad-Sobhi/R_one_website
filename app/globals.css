@@ -68,7 +68,8 @@ html {
 }
 body {
   margin: 0;
-  contain: layout style;
+  /* NB: never `contain: layout` here — it becomes the containing block for
+     position:fixed overlays and pushes modals/drawers to the document bottom. */
   color: var(--ink);
   background: var(--paper);
   font-family: var(--font-body);
@@ -1335,13 +1336,14 @@ a:hover > .brand-logo, .wordmark:hover .brand-logo { transform: rotate(-4deg) sc
 .mobile-drawer-backdrop {
   position: fixed;
   inset: 0;
+  height: 100dvh;
   z-index: 60;
   background: rgba(16, 16, 16, 0.55);
   backdrop-filter: blur(3px);
   animation: fade-in var(--t-base) var(--ease) both;
 }
 .drawer-backdrop { display: flex; justify-content: flex-start; }
-.modal-backdrop { display: flex; align-items: center; justify-content: center; padding: 18px; }
+.modal-backdrop { display: flex; align-items: center; justify-content: center; padding: 18px; overflow-y: auto; }
 .mobile-drawer-backdrop { display: flex; align-items: stretch; justify-content: flex-start; }
 
 .cart-drawer,
@@ -2000,7 +2002,7 @@ button.product-page-main-image:disabled { cursor: default; }
 /* ==========================================================
    Full-size image lightbox
    ========================================================== */
-.lightbox { position: fixed; inset: 0; z-index: 90; }
+.lightbox { position: fixed; inset: 0; height: 100dvh; z-index: 90; }
 .lightbox-backdrop {
   position: absolute;
   inset: 0;
