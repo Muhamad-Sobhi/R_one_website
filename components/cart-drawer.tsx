@@ -62,9 +62,9 @@ export default function CartDrawer({
         <div className="drawer-heading">
           <div>
             <span className="eyebrow">{brand} · طلبك</span>
-            <h2 id="cart-title">شنطة التسوق <small>{count}</small></h2>
+            <h2 id="cart-title">سلة التسوق <small>{count}</small></h2>
           </div>
-          <button className="icon-button" type="button" title="إغلاق" aria-label="إغلاق الشنطة" onClick={onClose}>
+          <button className="icon-button" type="button" title="إغلاق" aria-label="إغلاق السلة" onClick={onClose}>
             <X size={19} />
           </button>
         </div>
@@ -77,7 +77,7 @@ export default function CartDrawer({
                   <div className="cart-item" key={item.id}>
                     <Link className="cart-item-image" href={`/product/${item.id}`} onClick={onClose} aria-label={`عرض ${item.name}`}>
                       {item.image ? (
-                        <Image src={item.image} alt={item.name} fill sizes="80px" className="cart-item-img" />
+                        <Image src={item.image} alt={item.name} fill sizes="72px" className="cart-item-img" />
                       ) : (
                         <span>R/</span>
                       )}
@@ -113,7 +113,7 @@ export default function CartDrawer({
               ) : (
                 <div className="cart-empty">
                   <ShoppingBag size={25} />
-                  <strong>الشنطة لسه فاضية</strong>
+                  <strong>السلة لسه فاضية</strong>
                   <p>ابدأ اختار القطع اللي عجبتك.</p>
                   <button type="button" onClick={onBrowse}>شوف المجموعة <ArrowLeft size={14} /></button>
                 </div>

@@ -304,10 +304,13 @@ export function maxOrderQuantity(product: Product, sizeName?: string) {
   return Math.max(1, Math.min(MAX_QUANTITY, sizeStock(product, sizeName) || Number(product.stock) || 1));
 }
 
+export const IMAGE_WIDTH_CAP = 1400;
+
 export function optimizeImageUrl(url: string, width?: number) {
   if (!url || !url.includes(CLOUDINARY)) return url;
   if (url.includes('/upload/f_auto')) return url;
-  const transforms = ['f_auto', 'q_auto:eco', width ? `w_${Math.round(width)}` : '', 'dpr_auto'].filter(Boolean).join(',');
+  const target = Math.min(Math.round(width || IMAGE_WIDTH_CAP), IMAGE_WIDTH_CAP);
+  const transforms = ['f_auto', 'q_auto:low', `c_limit,w_${target}`, 'dpr_auto'].filter(Boolean).join(',');
   return url.replace('/upload/', `/upload/${transforms}/`);
 }
 
@@ -609,10 +612,19 @@ export function pickRelated(products: ResolvedProduct[], current: ResolvedProduc
 }
 
 export function whatsappHref(phone: string, message?: string) {
+  return whatsappTargets(phone, message)[0].href;
+}
+
+/** لو الجهاز فيه أكتر من تطبيق واتساب، نخلي العميل نفسه يختار. */
+export function whatsappTargets(phone: string, message?: string) {
   const digits = phone.replace(/\D/g, '');
   const international = digits.startsWith('00') ? digits.slice(2) : digits.startsWith('0') ? `20${digits.slice(1)}` : digits;
   const query = message ? `?text=${encodeURIComponent(message)}` : '';
-  return `https://wa.me/${international}${query}`;
+  return [
+    { id: 'whatsapp', label: 'واتساب', hint: 'التطبيق العادي', href: `https://wa.me/${international}${query}` },
+    { id: 'business', label: 'واتساب للأعمال', hint: 'WhatsApp Business', href: `https://api.whatsapp.com/send?phone=${international}${query}` },
+    { id: 'web', label: 'واتساب ويب', hint: 'يفتح في المتصفح', href: `https://web.whatsapp.com/send?phone=${international}${query}` },
+  ];
 }
 
 export function instagramHref(value: string) {

@@ -29,10 +29,12 @@ import SiteFooter from '@/components/site-footer';
 import SiteHeader from '@/components/site-header';
 import { useApprovedReviews, useCart, useOverlayLock, useStoreData, useToast } from '@/lib/hooks';
 import { trackEvent, useTrackSearch } from '@/lib/analytics';
+import { cartActions } from '@/lib/cart-store';
 import type { CheckoutForm } from '@/components/checkout-flow';
 import {
   MAIN_LINKS,
   type NavLink,
+  type Product,
   type SavedCheckoutDetails,
   type SortKey,
   CURRENCY_LABEL,
@@ -217,13 +219,17 @@ export default function StorePage() {
     setSearch((current) => tokenizeQuery(current).filter((entry) => entry !== token).join(' '));
   }, []);
 
-  function handleAdd(product: { id: string; name: string }) {
-    if (cart.addOne(product.id)) {
-      trackEvent({ event: 'add_to_cart', productId: product.id, productName: product.name });
-      showToast('اتضافت القطعة للشنطة.');
-    } else {
+  function handleAdd(product: Product) {
+    const firstSize = product.sizes?.[0];
+    const size = typeof firstSize === 'string' ? firstSize : firstSize?.name;
+    const color = product.colors?.[0]?.name;
+    const next = cartActions.changeVariant(product.id, size || undefined, color || undefined, 1);
+    if (next <= 0) {
       showToast('وصلت للحد المتاح من القطعة.');
+      return;
     }
+    trackEvent({ event: 'add_to_cart', productId: product.id, productName: product.name });
+    showToast('اتضافت القطعة للسلة.');
   }
 
   function beginCheckout() {
@@ -289,7 +295,7 @@ export default function StorePage() {
             featured.map((product, index) => (
               <article className={`intro-product-card intro-product-card-${index + 1}`} key={product.id}>
                 <Link className="intro-product-media" href={`/product/${product.id}`} aria-label={`عرض ${product.name}`}>
-                  {product.image ? <Image src={product.image} alt={product.name} fill sizes="240px" className="intro-product-img" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
+                  {product.image ? <Image src={product.image} alt={product.name} fill sizes="200px" className="intro-product-img" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
                   <span className="intro-product-index">R/ 0{index + 1}</span>
                   {product.discounted ? <span className="intro-product-sale">عرض</span> : null}
                 </Link>
@@ -303,7 +309,7 @@ export default function StorePage() {
                       {formatMoney(product.salePrice)}
                       {product.discounted ? <del>{formatMoney(product.price)}</del> : null}
                     </span>
-                    <button type="button" title={`أضف ${product.name} للشنطة`} aria-label={`أضف ${product.name} للشنطة`} onClick={() => handleAdd(product)}>
+                    <button type="button" title={`أضف ${product.name} للسلة`} aria-label={`أضف ${product.name} للسلة`} onClick={() => handleAdd(product)}>
                       <ShoppingBag size={15} />
                     </button>
                   </div>
@@ -340,7 +346,7 @@ export default function StorePage() {
           </div>
           <div className="rail-track">
             {newest.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} onAdd={handleAdd} priority={index < 4} />
+              <ProductCard key={product.id} product={product} index={index} priority={index < 4} />
             ))}
           </div>
         </section>
@@ -359,7 +365,7 @@ export default function StorePage() {
             {categoryGroups.slice(0, 6).map((group) => (
               <Link className="category-card" href={`/categories/${group.id}`} key={group.id}>
                 <div className="category-card-media">
-                  {group.cover ? <Image src={group.cover} alt={group.name} fill sizes="(max-width: 700px) 100vw, 33vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
+                  {group.cover ? <Image src={group.cover} alt={group.name} fill sizes="(max-width: 700px) 92vw, 28vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
                   <span className="category-card-count">{group.count} قطعة</span>
                 </div>
                 <div className="category-card-copy">
@@ -441,7 +447,7 @@ export default function StorePage() {
         ) : ranked.length ? (
           <div className="product-grid">
             {ranked.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} tokens={tokens} onAdd={handleAdd} priority={index < 4} />
+              <ProductCard key={product.id} product={product} index={index} tokens={tokens} priority={index < 4} />
             ))}
           </div>
         ) : (
@@ -465,7 +471,7 @@ export default function StorePage() {
           </div>
           <div className="rail-track">
             {offersNow.map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} onAdd={handleAdd} />
+              <ProductCard key={product.id} product={product} index={index} />
             ))}
           </div>
         </section>
@@ -482,7 +488,7 @@ export default function StorePage() {
           </div>
           <div className="rail-track">
             {group.items.slice(0, 8).map((product, index) => (
-              <ProductCard key={product.id} product={product} index={index} onAdd={handleAdd} />
+              <ProductCard key={product.id} product={product} index={index} />
             ))}
           </div>
         </section>

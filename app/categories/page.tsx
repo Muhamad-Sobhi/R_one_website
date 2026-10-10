@@ -48,7 +48,7 @@ export default function CategoriesPage() {
             {groups.map((group) => (
               <Link className="category-card" href={`/categories/${group.id}`} key={group.id}>
                 <div className="category-card-media">
-                  {group.cover ? <Image src={group.cover} alt={group.name} fill sizes="(max-width: 700px) 100vw, 33vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
+                  {group.cover ? <Image src={group.cover} alt={group.name} fill sizes="(max-width: 700px) 92vw, 28vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
                   <span className="category-card-count">{group.count} قطعة</span>
                 </div>
                 <div className="category-card-copy">

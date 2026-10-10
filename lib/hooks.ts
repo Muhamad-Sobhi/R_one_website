@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  CART_STORAGE_KEY,
-  type CartLine,
   type InfoPage,
   type Product,
   type ResolvedProduct,
@@ -11,15 +9,19 @@ import {
   resolveCatalog,
   todayStamp,
 } from '@/lib/store';
+import { bindCartProducts, cartActions, useCartLines } from '@/lib/cart-store';
 import {
   getCatalogServerSnapshot,
   getCatalogSnapshot,
   getContentServerSnapshot,
   getContentSnapshot,
+  getProductReviewsServerSnapshot,
+  getProductReviewsSnapshot,
   getReviewsServerSnapshot,
   getReviewsSnapshot,
   subscribeCatalog,
   subscribeContent,
+  subscribeProductReviews,
   subscribeReviews,
 } from '@/lib/store-cache';
 
@@ -53,80 +55,35 @@ export function useApprovedReviews() {
   return state.items as Review[];
 }
 
+/** تقييمات منتج واحد — بتتحدّث لحظي أول ما الأدمن يعتمد التقييم. */
+export function useProductReviews(productId: string | undefined) {
+  const id = productId ?? '';
+  const subscribe = useCallback((listener: () => void) => subscribeProductReviews(id, listener), [id]);
+  const snapshot = useCallback(() => getProductReviewsSnapshot(id), [id]);
+  const server = useCallback(() => getProductReviewsServerSnapshot(), []);
+  const state = useSyncExternalStore(subscribe, snapshot, server);
+  return state.items as Review[];
+}
+
 export function useContent() {
   const state = useSyncExternalStore(subscribeContent, getContentSnapshot, getContentServerSnapshot);
   return { posts: state.posts, infoPages: state.pages as InfoPage[], loading: state.loading };
 }
 
 export function useCart(products: Product[]) {
-  const [lines, setLines] = useState<CartLine[]>([]);
-  const [ready, setReady] = useState(false);
-  const productsRef = useRef(products);
-  productsRef.current = products;
+  bindCartProducts(products);
+  const state = useCartLines();
+  const lines = state.lines;
+  const ready = state.ready;
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CART_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as CartLine[];
-        if (Array.isArray(parsed)) {
-          setLines(
-            parsed.filter((line) => line && typeof line.productId === 'string' && Number.isInteger(line.quantity) && line.quantity > 0),
-          );
-        }
-      }
-    } catch {
-      localStorage.removeItem(CART_STORAGE_KEY);
-    }
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (ready) localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines));
-  }, [lines, ready]);
-
-  const changeQuantity = useCallback((productId: string, quantity: number) => {
-    const stock = Number(productsRef.current.find((item) => item.id === productId)?.stock) || 0;
-    const next = Math.min(20, stock, Math.max(0, Math.floor(quantity)));
-    setLines((current) =>
-      next === 0
-        ? current.filter((line) => line.productId !== productId)
-        : current.some((line) => line.productId === productId)
-          ? current.map((line) => (line.productId === productId ? { ...line, quantity: next } : line))
-          : [...current, { productId, quantity: next }],
-    );
-    return next;
-  }, []);
-
+  const changeQuantity = useCallback((productId: string, quantity: number) => cartActions.changeQuantity(productId, quantity), []);
   const changeVariant = useCallback(
-    (productId: string, size: string | undefined, color: string | undefined, quantity: number) => {
-      const stock = Number(productsRef.current.find((item) => item.id === productId)?.stock) || 0;
-      const next = Math.min(20, stock, Math.max(0, Math.floor(quantity)));
-      setLines((current) => {
-        const index = current.findIndex(
-          (line) => line.productId === productId && (line.size ?? '') === (size ?? '') && (line.color ?? '') === (color ?? ''),
-        );
-        if (next === 0) return current.filter((_, position) => position !== index);
-        if (index < 0) return [...current, { productId, quantity: next, size, color }];
-        return current.map((line, position) => (position === index ? { ...line, quantity: next } : line));
-      });
-      return next;
-    },
+    (productId: string, size: string | undefined, color: string | undefined, quantity: number) =>
+      cartActions.changeVariant(productId, size, color, quantity),
     [],
   );
-
-  const addOne = useCallback(
-    (productId: string) => {
-      const existing = lines.find((line) => line.productId === productId)?.quantity || 0;
-      const stock = Number(productsRef.current.find((item) => item.id === productId)?.stock) || 0;
-      if (existing >= Math.min(20, stock)) return false;
-      changeQuantity(productId, existing + 1);
-      return true;
-    },
-    [changeQuantity, lines],
-  );
-
-  const clear = useCallback(() => setLines([]), []);
+  const addOne = useCallback((productId: string) => cartActions.addOne(productId), []);
+  const clear = useCallback(() => cartActions.clear(), []);
 
   return { lines, ready, changeQuantity, changeVariant, addOne, clear };
 }

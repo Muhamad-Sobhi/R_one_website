@@ -155,6 +155,20 @@ export function getCatalogServerSnapshot(): CatalogState {
 
 /* ---------------------------------- reviews --------------------------------- */
 
+/**
+ * ملاحظة: بنفلتر بـ where على status + productId بس (ساوي) من غير orderBy،
+ * عشان محتاجش composite index في Firestore — لو الـindex ناقص الـlistener
+ * بيقفل وما بيظهرش أي تقييم. الترتيب بيتعمل هنا في العميل.
+ */
+
+function byNewest(list: Review[]) {
+  const stamp = (value: unknown) => {
+    const seconds = (value as { seconds?: number } | undefined)?.seconds;
+    return typeof seconds === 'number' ? seconds : 0;
+  };
+  return [...list].sort((left, right) => stamp(right.createdAt) - stamp(left.createdAt));
+}
+
 const reviews = createStore<{ items: Review[]; loading: boolean }>({ items: [], loading: true });
 let reviewsStarted = false;
 
@@ -162,8 +176,8 @@ export function subscribeReviews(listener: Listener<{ items: Review[]; loading: 
   if (!reviewsStarted) {
     reviewsStarted = true;
     onSnapshot(
-      query(collection(db, 'reviews'), where('status', '==', 'معتمدة'), orderBy('createdAt', 'desc'), limit(60)),
-      (snapshot) => reviews.set({ items: snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Review), loading: false }),
+      query(collection(db, 'reviews'), where('status', '==', 'معتمدة'), limit(200)),
+      (snapshot) => reviews.set({ items: byNewest(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Review)), loading: false }),
       () => reviews.set({ items: [], loading: false }),
     );
   }
@@ -173,6 +187,48 @@ export function subscribeReviews(listener: Listener<{ items: Review[]; loading: 
 export const getReviewsSnapshot = () => reviews.get();
 const REVIEWS_SERVER_SNAPSHOT = { items: [] as Review[], loading: true };
 export const getReviewsServerSnapshot = () => REVIEWS_SERVER_SNAPSHOT;
+
+/* ------------------------- reviews for a single product ------------------------ */
+
+function createProductReviewsStore(productId: string) {
+  const store = createStore<{ items: Review[]; loading: boolean }>({ items: [], loading: true });
+  const started = onSnapshot(
+    query(collection(db, 'reviews'), where('status', '==', 'معتمدة'), where('productId', '==', productId)),
+    (snapshot) => store.set({ items: byNewest(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as Review)), loading: false }),
+    () => store.set({ items: [], loading: false }),
+  );
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', () => started(), { once: true });
+  return {
+    subscribe: store.subscribe,
+    get: store.get,
+  };
+}
+
+const productReviewStores = new Map<string, ReturnType<typeof createProductReviewsStore>>();
+
+export function subscribeProductReviews(productId: string, listener: Listener<{ items: Review[]; loading: boolean }>) {
+  if (!productId) {
+    listener({ items: [], loading: false });
+    return () => undefined;
+  }
+  let store = productReviewStores.get(productId);
+  if (!store) {
+    store = createProductReviewsStore(productId);
+    productReviewStores.set(productId, store);
+  }
+  return store.subscribe(listener);
+}
+
+export function getProductReviewsSnapshot(productId: string) {
+  if (!productId) return EMPTY_PRODUCT_REVIEWS;
+  return productReviewStores.get(productId)?.get() ?? EMPTY_PRODUCT_REVIEWS;
+}
+
+export function getProductReviewsServerSnapshot() {
+  return EMPTY_PRODUCT_REVIEWS;
+}
+
+const EMPTY_PRODUCT_REVIEWS: { items: Review[]; loading: boolean } = { items: [], loading: true };
 
 /* ------------------------- blog posts + info pages -------------------------- */
 

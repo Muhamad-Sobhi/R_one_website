@@ -51,8 +51,8 @@
   --font-display: var(--font-archivo), var(--font-plex), 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif;
 
   /* layout */
-  --shell: min(100% - clamp(24px, 6vw, 96px), 1400px);
-  --header-h: 74px;
+  --shell: min(100% - clamp(22px, 5vw, 80px), 1280px);
+  --header-h: 68px;
 }
 
 /* ==========================================================
@@ -61,6 +61,8 @@
 * { box-sizing: border-box; }
 html {
   min-width: 320px;
+  /* 15px بدل 16px: بيقلّص كل العناوين اللي مبنية على rem بنسبة ~6% ويخلي الصفحة أهدى */
+  font-size: 15px;
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--header-h) + 24px);
   background: var(--paper);
@@ -2973,3 +2975,133 @@ a.contact-card:hover { border-color: var(--accent); transform: translateX(-3px);
     transition-duration: 0.01ms !important;
   }
 }
+/* ==========================================================
+   Product card — quick buy + quick order
+   ========================================================== */
+
+.product-cta-row { display: flex; align-items: stretch; gap: 8px; margin-top: 12px; }
+.product-cta-row .product-buy-now { flex: 1 1 auto; margin-top: 0; }
+.product-quick-order {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--whatsapp);
+  border-radius: var(--radius-pill);
+  background: var(--whatsapp);
+  color: var(--white);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--t-base) var(--ease), transform var(--t-base) var(--ease-out);
+}
+.product-quick-order:hover:not(:disabled) { background: #1ebe5d; transform: translateY(-2px); }
+.product-quick-order:disabled { cursor: not-allowed; opacity: .5; }
+
+/* ==========================================================
+   WhatsApp app picker
+   ========================================================== */
+.whatsapp-picker {
+  display: flex;
+  width: min(100%, 420px);
+  max-height: calc(100dvh - 36px);
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  box-shadow: var(--shadow-lg);
+  animation: modal-in var(--t-slow) var(--ease-out) both;
+}
+.whatsapp-targets { display: flex; flex-direction: column; gap: 8px; }
+.whatsapp-target {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--ink);
+  transition: border-color var(--t-base) var(--ease), background-color var(--t-base) var(--ease), transform var(--t-base) var(--ease-out);
+}
+.whatsapp-target:hover { border-color: var(--whatsapp); background: var(--whatsapp-soft, #f0fbf4); transform: translateY(-2px); }
+.whatsapp-target-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  background: var(--whatsapp);
+  color: var(--white);
+}
+.whatsapp-target-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
+.whatsapp-target-copy strong { font-size: 13px; font-weight: 700; }
+.whatsapp-target-copy small { color: var(--muted); font-size: 11px; }
+.whatsapp-copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.whatsapp-copy-button:hover { background: var(--paper-2); }
+.whatsapp-picker-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.8; text-align: center; }
+
+@media (max-width: 700px) {
+  .product-cta-row { flex-wrap: wrap; }
+  .product-cta-row .product-buy-now { flex: 1 1 100%; }
+  .product-quick-order { flex: 1 1 100%; }
+}
+
+.whatsapp-open-native {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--whatsapp);
+  border-radius: var(--radius);
+  background: var(--whatsapp);
+  color: var(--white);
+  text-align: start;
+  cursor: pointer;
+  transition: transform var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease);
+}
+.whatsapp-open-native:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(37, 211, 102, .28); }
+.whatsapp-open-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius-pill); background: rgba(255, 255, 255, .22); }
+.whatsapp-open-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.whatsapp-open-copy strong { font-size: 13.5px; font-weight: 800; }
+.whatsapp-open-copy small { font-size: 11px; font-weight: 500; line-height: 1.6; opacity: .92; }
+.whatsapp-native-note { margin: -4px 0 0; color: var(--muted); font-size: 11px; line-height: 1.8; text-align: center; }
+.whatsapp-fallback-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.whatsapp-fallback-toggle:hover { color: var(--ink); }
+.whatsapp-fallback-toggle svg { transition: transform var(--t-base) var(--ease); }
+.whatsapp-chevron-open { transform: rotate(180deg); }

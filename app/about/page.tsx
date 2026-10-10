@@ -26,7 +26,7 @@ export default function AboutPage() {
         <div className="about-story">
           <div className="about-story-media">
             {available.find((product) => product.image)?.image ? (
-              <Image src={available.find((product) => product.image)!.image} alt="R/ONE" fill sizes="(max-width: 900px) 100vw, 45vw" priority />
+              <Image src={available.find((product) => product.image)!.image} alt="R/ONE" fill sizes="(max-width: 900px) 92vw, 38vw" priority />
             ) : (
               <div className="product-placeholder"><span>R/</span><b>ONE</b></div>
             )}

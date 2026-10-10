@@ -72,7 +72,8 @@ export async function POST(request: Request) {
   const city = text(body.city, 60);
   const address = text(body.address, 240);
   const shippingArea = text(body.shippingArea, 80);
-  const lines = Array.isArray(body.items) ? body.items as SubmittedLine[] : [];
+  const rawLines = Array.isArray(body.items) ? body.items as SubmittedLine[] : [];
+  const source = body.source === 'whatsapp' ? 'whatsapp' : body.source === 'quick-buy' ? 'quick-buy' : 'storefront';
   const phoneDigits = phone.replace(/\D/g, '');
 
   if (customerName.length < 2 || phoneDigits.length < 8 || !city || address.length < 6 || !shippingArea) {
@@ -81,11 +82,18 @@ export async function POST(request: Request) {
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: 'تأكد من صيغة البريد الإلكتروني.' }, { status: 400 });
   }
-  if (!lines.length || lines.length > 100 || lines.some((line) => !line || typeof line.productId !== 'string' || !line.productId || !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 20)) {
+  if (!rawLines.length || rawLines.length > 100 || rawLines.some((line) => !line || typeof line.productId !== 'string' || !line.productId || !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 20)) {
     return NextResponse.json({ error: 'راجع المنتجات والكميات في السلة.' }, { status: 400 });
   }
-  const uniqueIds = new Set(lines.map((line) => line.productId));
-  if (uniqueIds.size !== lines.length) return NextResponse.json({ error: 'يوجد منتج مكرر في الطلب.' }, { status: 400 });
+  // نفس المنتج ممكن يتكرر بأكتر من مقاس/لون — ندمج المتكرر في سطر واحد.
+  const merged = new Map<string, SubmittedLine>();
+  for (const line of rawLines) {
+    const key = `${line.productId}|${text(line.size, 40)}|${text(line.color, 40)}`;
+    const existing = merged.get(key);
+    if (existing) existing.quantity = Math.min(20, existing.quantity + line.quantity);
+    else merged.set(key, { productId: line.productId, quantity: line.quantity, size: text(line.size, 40) || undefined, color: text(line.color, 40) || undefined });
+  }
+  const lines = Array.from(merged.values());
 
   try {
     const orderRef = adminDb.collection('orders').doc();
@@ -152,6 +160,7 @@ export async function POST(request: Request) {
       transaction.set(customerRef, customerData, { merge: true });
       transaction.create(orderRef, {
         customerId,
+        source,
         customerName,
         customerPhone: phone,
         customerEmail: email,
@@ -167,10 +176,16 @@ export async function POST(request: Request) {
         status: 'جديد',
         createdAt: FieldValue.serverTimestamp(),
       });
-      productSnapshots.forEach((snapshot, index) => transaction.update(snapshot.ref, {
-        stock: (Number(snapshot.data()?.stock) || 0) - lines[index].quantity,
-        updatedAt: FieldValue.serverTimestamp(),
-      }));
+      const soldPerProduct = new Map<string, number>();
+      lines.forEach((line) => soldPerProduct.set(line.productId, (soldPerProduct.get(line.productId) || 0) + line.quantity));
+      productSnapshots.forEach((snapshot) => {
+        const sold = soldPerProduct.get(snapshot.ref.id) || 0;
+        if (!sold) return;
+        transaction.update(snapshot.ref, {
+          stock: Math.max(0, (Number(snapshot.data()?.stock) || 0) - sold),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      });
       return { orderId: orderRef.id, shippingPending: !rateDocument };
     });
 

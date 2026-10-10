@@ -4,7 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Check, MessageCircle, Minus, PackageCheck, Plus, ShoppingBag, Trash2, Zap } from 'lucide-react';
-import CustomerGate, { type CustomerProfile } from '@/components/customer-gate';
+import CustomerGate from '@/components/customer-gate';
+import WhatsAppPicker from '@/components/whatsapp-picker';
 import { cartItemsFrom } from '@/components/checkout-flow';
 import { PageHero, PageSection } from '@/components/page-shell';
 import StoreLayout from '@/components/store-layout';
@@ -20,17 +21,26 @@ export default function CartPage() {
   const subtotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
   const rate = rates.find((entry) => entry.isActive);
   const [gateOpen, setGateOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [placedOrderId, setPlacedOrderId] = useState('');
 
-  function buildMessage(customer?: CustomerProfile) {
+  const orderItems = useMemo(
+    () => items.map((item) => ({ productId: item.id, quantity: item.quantity, ...(item.size ? { size: item.size } : {}), ...(item.color ? { color: item.color } : {}) })),
+    [items],
+  );
+
+  function buildMessage(customer?: { name: string; phone: string; address: string }, orderId?: string) {
     const lines = [
-      `*طلب كل الشنطة من R/ONE*`,
+      '*طلب كل السلة من R/ONE*',
       ...(customer ? [`العميل: ${customer.name}${customer.phone ? ` (${customer.phone})` : ''}${customer.address ? `\nالعنوان: ${customer.address}` : ''}`] : []),
+      ...(orderId ? [`رقم الطلب: ${orderId}`] : []),
       '',
       ...items.map((item) => {
         const options = [item.color, item.size].filter(Boolean).join(' · ');
         return `• ${item.name}${options ? ` — ${options}` : ''} × ${item.quantity} = ${formatPrice(item.salePrice * item.quantity)}`;
       }),
       '',
+      `عدد القطع: ${count}`,
       `إجمالي المنتجات: ${formatPrice(subtotal)} ${CURRENCY_LABEL}`,
       ...(rate ? `التوصيل المتوقع: ${formatPrice(rate.price)} ${CURRENCY_LABEL}` : []),
       'أرجو تأكيد الطلب وموعد التوصيل.',
@@ -38,17 +48,9 @@ export default function CartPage() {
     return lines.join('\n');
   }
 
-  function buyAllViaWhatsApp(customer?: CustomerProfile) {
-    const phone = profile.whatsapp?.replace(/\D/g, '') ?? '';
-    if (!phone) return;
-    trackEvent({ event: 'whatsapp' });
-    const digits = phone.startsWith('0') ? `20${phone.slice(1)}` : phone;
-    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(buildMessage(customer))}`, '_blank', 'noreferrer');
-  }
-
   return (
     <StoreLayout>
-      <PageHero eyebrow="طلبك" title="سلة التسوق" description={`${count} قطعة في الشنطة`} breadcrumb={[{ label: 'الرئيسية', href: '/' }, { label: 'السلة' }]} />
+      <PageHero eyebrow="طلبك" title="سلة التسوق" description={`${count} قطعة في السلة`} breadcrumb={[{ label: 'الرئيسية', href: '/' }, { label: 'السلة' }]} />
 
       <PageSection>
         {items.length ? (
@@ -111,11 +113,24 @@ export default function CartPage() {
       <CustomerGate
         open={gateOpen}
         onClose={() => setGateOpen(false)}
-        reason="سجّل بياناتك الأول، وبعدها هنجهّز رسالة واحدة فيها كل منتجات الشنطة."
-        onVerified={(customer) => {
+        reason="سجّل بياناتك الأول، وبعدها هنجهّز رسالة واحدة فيها كل منتجات السلة ونسجّل الطلب في لوحة التحكم."
+        rates={rates}
+        orderItems={orderItems}
+        onOrderCreated={(orderId) => {
           setGateOpen(false);
-          buyAllViaWhatsApp(customer);
+          setPlacedOrderId(orderId);
+          setPickerOpen(true);
         }}
+      />
+
+      <WhatsAppPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        phone={profile.whatsapp ?? ''}
+        title={`طلب السلة${placedOrderId ? ` #${placedOrderId.slice(-6).toUpperCase()}` : ''}`}
+        message={buildMessage(undefined, placedOrderId || undefined)}
+        note="اختار تطبيق واتساب اللي عايز تبعت منه الطلب — لو الجهاز فيه أكتر من تطبيق."
+        onOpened={() => trackEvent({ event: 'whatsapp' })}
       />
 
       {profile.whatsapp ? (

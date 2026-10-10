@@ -61,7 +61,7 @@ export default function ImageLightbox({ images, index, alt, onIndexChange, onClo
             alt={`${alt} — صورة ${index + 1}`}
             width={2000}
             height={2000}
-            sizes="100vw"
+            sizes="(max-width: 900px) 100vw, 1400px"
             quality={92}
             priority
             className="lightbox-image"

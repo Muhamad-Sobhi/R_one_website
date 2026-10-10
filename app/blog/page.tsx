@@ -21,7 +21,7 @@ export default function BlogPage() {
         {lead ? (
           <Link className="post-lead" href={`/blog/${lead.slug || lead.id}`}>
             <div className="post-lead-media">
-              {lead.coverImage ? <Image src={lead.coverImage} alt={lead.title} fill sizes="(max-width: 900px) 100vw, 60vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
+              {lead.coverImage ? <Image src={lead.coverImage} alt={lead.title} fill sizes="(max-width: 900px) 92vw, 48vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
             </div>
             <div className="post-lead-copy">
               <span className="eyebrow">مقال مميز</span>
@@ -42,7 +42,7 @@ export default function BlogPage() {
             {rest.map((post) => (
               <Link className="post-card" href={`/blog/${post.slug || post.id}`} key={post.id}>
                 <div className="post-card-media">
-                  {post.coverImage ? <Image src={post.coverImage} alt={post.title} fill sizes="(max-width: 700px) 100vw, 33vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
+                  {post.coverImage ? <Image src={post.coverImage} alt={post.title} fill sizes="(max-width: 700px) 92vw, 28vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
                 </div>
                 <div className="post-card-copy">
                   <span className="post-meta"><CalendarDays size={13} /> {formatDateStamp(post.publishedAt)}</span>

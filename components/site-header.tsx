@@ -133,9 +133,9 @@ export default function SiteHeader({
             </div>
           ) : null}
 
-          <button className="bag-button" type="button" onClick={onOpenCart} aria-label={`فتح الشنطة، ${cartCount} قطعة`}>
+          <button className="bag-button" type="button" onClick={onOpenCart} aria-label={`فتح السلة، ${cartCount} قطعة`}>
             <ShoppingBag size={18} />
-            <span>الشنطة</span>
+            <span>السلة</span>
             <b className={cartCount ? 'bag-count-active' : ''}>{cartCount}</b>
           </button>
         </div>

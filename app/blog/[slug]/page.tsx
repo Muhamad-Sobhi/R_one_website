@@ -35,7 +35,7 @@ export default function BlogPostPage() {
 
       <article className="post-article">
         {post.coverImage ? (
-          <div className="post-cover"><Image src={post.coverImage} alt={post.title} fill sizes="(max-width: 900px) 100vw, 900px" priority /></div>
+          <div className="post-cover"><Image src={post.coverImage} alt={post.title} fill sizes="(max-width: 900px) 92vw, 720px" priority /></div>
         ) : null}
         <div className="post-article-meta">
           <span><CalendarDays size={14} /> {formatDateStamp(post.publishedAt)}</span>
@@ -54,7 +54,7 @@ export default function BlogPostPage() {
             {related.map((entry) => (
               <Link className="post-card" href={`/blog/${entry.slug || entry.id}`} key={entry.id}>
                 <div className="post-card-media">
-                  {entry.coverImage ? <Image src={entry.coverImage} alt={entry.title} fill sizes="(max-width: 700px) 100vw, 33vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
+                  {entry.coverImage ? <Image src={entry.coverImage} alt={entry.title} fill sizes="(max-width: 700px) 92vw, 28vw" /> : <div className="product-placeholder"><span>R/</span><b>ONE</b></div>}
                 </div>
                 <div className="post-card-copy">
                   <h3>{entry.title}</h3>
